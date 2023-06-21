@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, MutableSequence, Sequence
 
 from pxr import Gf, Vt
+import omniverse_utils
 
 
 class Terrain(ABC):
@@ -121,7 +122,7 @@ class Terrain(ABC):
 
         path =  F"/terrain_mesh_{terrain_id}"
         
-        terrain_prim = ou.trimesh_to_prim(path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
+        terrain_prim = omniverse_utils.trimesh_to_prim(path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
         omniverse_utils.translate_prim(path, world_translation)
 
         return terrain_prim
