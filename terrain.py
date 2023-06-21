@@ -4,7 +4,6 @@ from typing import Tuple, Union, List, MutableSequence, Sequence
 
 from pxr import Gf, Vt
 
-import omniverse_utils as ou
 
 class Terrain(ABC):
     """Abstract base class for generating terrain meshes.

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable, MutableSequence, Sequence, Union, List
 
 # omniverse imports
-import omniverse_utils as omni_utils
+import omniverse_utils
 from omni.isaac.core.utils.prims import define_prim
 
 class Asset(object):
@@ -35,9 +35,9 @@ class Asset(object):
 
         def calculate_area():
             temp_prim = self.insert() # TODO: Current area check requires a prim be created/destroyed, ideally this can be done without modifying the scene.
-            bounding_box = omni_utils.context().compute_path_world_bounding_box(temp_prim)           
+            bounding_box = omniverse_utils.context().compute_path_world_bounding_box(temp_prim)           
             area = np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
-            omni_utils.delete_prim(temp_prim)
+            omniverse_utils.delete_prim(temp_prim)
             return area
 
         self.area = calculate_area()
@@ -66,7 +66,7 @@ class Asset(object):
         asset_prim = define_prim(asset_prim_path,"Xform")
         asset_prim.GetReferences().AddReference(os.path.join(self.__file_path))
 
-        omni_utils.transform_prim(asset_prim_path, translation, rotation, rotation_order, scale=(self.asset_scale * scale[0], self.asset_scale * scale[1], self.asset_scale * scale[2])) 
+        omniverse_utils.transform_prim(asset_prim_path, translation, rotation, rotation_order, scale=(self.asset_scale * scale[0], self.asset_scale * scale[1], self.asset_scale * scale[2])) 
         # Soft TODO: Maybe use an xform wrapping the reference instead.
 
         return asset_prim_path 
@@ -76,18 +76,13 @@ class AssetManager(object):
     """A class for managing assets in a given directory.
 
     Methods:
-        __init__(self, asset_directory : str, recurse : bool): Initializes the AssetManager with the given asset directory.
+        __init__(self): Initializes the AssetManager with no registered assets.
         register_assets(self, asset_directory : str, recurse : bool) -> None: Registers the assets in the given directory.
         register_many_assets(self, asset_directories : List[str], recurse : bool) -> None: Registers the assets in all the given directories.
         sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + asset.area)) -> Asset: Provides a sampled asset with probability proportional to the given weights softmaxed.
     """
     def __init__(self):
-        """Initializes the AssetManager with the given asset directory.
-
-        Args:
-            asset_directory (str): The directory containing the assets.
-            recurse (bool): Whether or not to include assets within subdirectories of the given directory.
-        """
+        """Initializes an AssetManager."""
         self.registered_assets : np.ndarray = np.array([])
 
     def register_assets(self, asset_directory : str, recurse : bool, asset_scale : float = 1.0) :
