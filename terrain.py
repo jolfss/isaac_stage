@@ -116,13 +116,13 @@ class Terrain(ABC):
         primvars_st = [(0,0)] * triangles.size
         
         terrain_id = 0 # Get unique name for the terrain.
-        while ou.stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
+        while omniverse_utils.stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
             terrain_id += 1
 
         path =  F"/terrain_mesh_{terrain_id}"
         
         terrain_prim = ou.trimesh_to_prim(path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
-        ou.translate_prim(path, world_translation)
+        omniverse_utils.translate_prim(path, world_translation)
 
         return terrain_prim
 
