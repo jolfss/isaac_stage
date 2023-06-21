@@ -5,7 +5,7 @@ from asset_manager import *
 from terrain import *
 from pxr import *
 
-class EnvironmentCreator(object):
+class StageBuilder(object):
     """
     A class for creating environments with terrain and assets.
 
@@ -17,7 +17,7 @@ class EnvironmentCreator(object):
     """
     def __init__(self, xdim : int, ydim : int, terrain : Terrain, asset_manager : AssetManager):
         """
-        Initializes a new instance of the EnvironmentCreator class.
+        Initializes a new instance of the StageBuilder class.
 
         Args:
             xdim (int): The x dimension of the environment.
@@ -60,9 +60,9 @@ class EnvironmentCreator(object):
             theta = np.random.random()*360
             next_asset.insert(translation=np.array([x,y,z]) + world_translation, rotation=(0,0,theta)) # NOTE: Not verified, just looks like it does the right thing.
 
-    def create_environment(self, global_offset:Union[MutableSequence[float],Sequence[float]]=[0,0,0], spawn_assets:bool=True, asset_density:float=0.3):
+    def build_stage(self, global_offset:Union[MutableSequence[float],Sequence[float]]=[0,0,0], spawn_assets:bool=True, asset_density:float=0.3):
         """
-        Creates an environment with terrain and assets.
+        Creates the terrain and populates it with assets.
 
         Args:
             global_offset (float subscriptable @ 0,1,2): The world space translation of the environment.
@@ -70,7 +70,7 @@ class EnvironmentCreator(object):
             asset_density (float): The desired density of assets in the environment.
 
         Effect:
-            Creates an environment within the current context.
+            Adds terrain/assets to the current usd stage.
         """
         print("Meshing Terrain..")
         self.terrain.create_terrain(self.xdim, self.ydim, global_offset)
