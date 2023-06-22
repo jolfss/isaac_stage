@@ -60,8 +60,8 @@ def main():
     #-----------------#
     
     # create environment object and use it to modify the scene
-    environment = EnvironmentCreator(xdim=100,ydim=100,terrain=terrain,asset_manager=asset_manager)
-    environment.create_environment(global_offset=[0,0,0],spawn_assets=True,asset_density=0.3)
+    environment = StageBuilder(xdim=100,ydim=100,terrain=terrain,asset_manager=asset_manager)
+    environment.build_stage(global_offset=[0,0,0],spawn_assets=True,asset_density=0.3)
 
     # everything after this line happens at until the simulation is closed
     isaac_sim_runner.run() # Process continues until closed by user or exception.

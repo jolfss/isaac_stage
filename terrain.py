@@ -1,12 +1,13 @@
+from enum import Enum
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, List, MutableSequence, Sequence
+from typing import Tuple, Union, List, MutableSequence, Sequence, Set
 
 from pxr import Gf, Vt
 import omniverse_utils
 
 
-class Terrain(ABC):
+class Terrain2D(ABC):
     """Abstract base class for generating terrain meshes.
 
     Attributes:
@@ -14,7 +15,7 @@ class Terrain(ABC):
 
     Methods:
         randomize(seed) -> None:
-            Set or randomize the random seed, then randomize all randomizable parameters.
+            Set or randomize the seed, then modify internal state to produce a new/random terrain. Optionally implemented, may have no effect on generation.
 
         terrain_fn(x, y) -> float:
             Return the height of the terrain at (x, y), optionally sensitive to the randomize method.
@@ -22,18 +23,19 @@ class Terrain(ABC):
         create_terrain(xdim, ydim, world_translation) -> str (prim path):
             Create a triangle mesh of the terrain with dimensions xdim by ydim, centered at world_translation.
     """
+
     def __init__(self, terrain_unit : float):
         """Initialize a Terrain with a set generation resolution."""
-        self.terrain_unit = terrain_unit        
-
-    @abstractmethod
-    def randomize(self, seed) -> None :
-        """Set or randomize the random seed, THEN randomize all randomizable parameters"""
-        pass
+        self.terrain_unit = terrain_unit 
 
     @abstractmethod
     def terrain_fn(self, x : float, y : float) -> float :
         """The height of the terrain at (x,y), optionally sensitive to the randomize method for parametrized environments."""
+        pass
+
+    @abstractmethod
+    def randomize(self, seed) -> None :
+        """Set or randomize the random seed and do whatever is necessary (modify internal state) to randomize next terrain_fn call."""
         pass
 
     def create_terrain(self, xdim : int, ydim : int, world_translation : Union[MutableSequence[float],Sequence[float]]) -> str:
@@ -120,15 +122,32 @@ class Terrain(ABC):
         while omniverse_utils.stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
             terrain_id += 1
 
-        path =  F"/terrain_mesh_{terrain_id}"
+        prim_path =  F"/terrain_mesh_{terrain_id}"
         
-        terrain_prim = omniverse_utils.trimesh_to_prim(path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
-        omniverse_utils.translate_prim(path, world_translation)
+        terrain_prim = omniverse_utils.trimesh_to_prim(prim_path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
+        omniverse_utils.translate_prim(prim_path, world_translation)
+        omniverse_utils.make_static_collider(prim_path)
 
         return terrain_prim
 
+    @abstractmethod
+    def get_region_tags(self, x, y) -> Set[str]:
+        """
+        A set of implementation-specific tags associated with the position (x,y) on the terrain.
 
-class WaveletTerrain(Terrain):
+        Params:
+            x (float): 
+            y (float): 
+
+        Usage:
+            For example, the following could be used by an external module for placing assets and spawning.
+            terrain_object.get_region_tags(0,0) = {"spawn_location", "no_assets"}
+            terrain_object.get_region_tags(0,10)= {}
+        """
+        return set()
+
+
+class WaveletTerrain(Terrain2D):
     """A terrain made of wavelets with localized damping and a flat patch.
 
     Methods:
@@ -182,20 +201,6 @@ class WaveletTerrain(Terrain):
         # initialize randomizable parameters 
         self.randomize(seed)
 
-    def randomize(self, seed : Union[int, None] = None):
-        """
-        Randomizes the wavelet frequencies and placement of roughing and smoothing spots/nodes.
-
-        Args:
-            seed (int | None): The seed for randomization. If None, a random seed is chosen.
-        """
-        rand = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
-
-        self.wavelet_frequencies =  (np.log(1 + rand.random(self.num_rough)**8) / np.log(2)) * (self.high - self.low) + self.low
-        self.wave_signs =           np.sign(rand.random(self.num_rough)-0.5)
-        self.rough_spots =          (2*rand.random((self.num_rough,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
-        self.smooth_spots =         (2*rand.random((self.num_smooth,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
-
     def terrain_fn(self, x, y):
         """
         Computes the height of the terrain at the given (x, y) coordinates.
@@ -227,3 +232,33 @@ class WaveletTerrain(Terrain):
          
         return self.amp * smoothen(x,y) * roughen(x,y) * protect_center(x,y)
 
+
+    def randomize(self, seed : Union[int, None] = None):
+        """
+        Randomizes the wavelet frequencies and placement of roughing and smoothing spots/nodes.
+
+        Args:
+            seed (int | None): The seed for randomization. If None, a random seed is chosen.
+        """
+        rand = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
+
+        self.wavelet_frequencies =  (np.log(1 + rand.random(self.num_rough)**8) / np.log(2)) * (self.high - self.low) + self.low
+        self.wave_signs =           np.sign(rand.random(self.num_rough)-0.5)
+        self.rough_spots =          (2*rand.random((self.num_rough,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
+        self.smooth_spots =         (2*rand.random((self.num_smooth,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
+
+
+    def get_region_tags(self, x, y) -> Set[str]:
+        """
+        A set of implementation-specific tags associated with the position (x,y) on the terrain.
+
+        Possible Tag Values:
+            - spawn_assets : tagged if assets should not be spawned at (x,y)
+
+        Params:
+            x (float): 
+            y (float): 
+        """
+        if x**2 + y**2 >= self.protect_radius ** 2:
+            return {"spawn_assets"}
+        return set()

@@ -131,3 +131,19 @@ def trimesh_to_prim(path : str,
 
         return path
 
+
+def make_static_collider(prim_path:str):
+    """
+    Not entirely sure how this works--but it makes an object a static collider.
+
+    Args:
+        path (str): The prim path of the prim to add physics properties to.
+    """
+    omni.kit.commands.execute('AddPhysicsComponent',
+        usd_prim=stage().GetPrimAtPath(prim_path),
+        component='PhysicsCollisionAPI')
+    
+    # Doesn't work for some reason
+    # omni.kit.commands.execute('SetStaticCollider',
+    #     path=pxr.Sdf.Path(prim_path,
+    #     approximationShape='none')) 
