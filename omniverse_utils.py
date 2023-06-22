@@ -9,6 +9,7 @@ from pxr import Gf, Sdf, Vt
 # omniverse imports
 import omni
 import omni.kit.commands
+from omni.physx.scripts import utils
 
 def context() -> omni.usd.UsdContext:
         """
@@ -139,11 +140,16 @@ def make_static_collider(prim_path:str):
     Args:
         path (str): The prim path of the prim to add physics properties to.
     """
+    
+    # Works but Convex Hull (bounding box) for Terrain.
+    #utils.setCollider(stage().GetPrimAtPath(prim_path), approximationShape="None")
+
+    # Works #1
     omni.kit.commands.execute('AddPhysicsComponent',
         usd_prim=stage().GetPrimAtPath(prim_path),
         component='PhysicsCollisionAPI')
-    
-    # Doesn't work for some reason
-    # omni.kit.commands.execute('SetStaticCollider',
-    #     path=pxr.Sdf.Path(prim_path,
-    #     approximationShape='none')) 
+
+    # Works #2
+    omni.kit.commands.execute('SetStaticCollider',
+        path=pxr.Sdf.Path(prim_path),
+        approximationShape='none') 

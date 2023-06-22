@@ -142,7 +142,7 @@ class Terrain2D(ABC):
         Usage:
             For example, the following could be used by an external module for placing assets and spawning.
             terrain_object.get_region_tags(0,0) = {"spawn_location", "no_assets"}
-            terrain_object.get_region_tags(0,10)= {}
+            terrain_object.get_region_tags(0,10)= set()
         """
         return set()
 
@@ -259,6 +259,9 @@ class WaveletTerrain(Terrain2D):
             x (float): 
             y (float): 
         """
+        tags = set()
+
         if x**2 + y**2 >= self.protect_radius ** 2:
-            return {"spawn_assets"}
-        return set()
+            tags.add("spawn_assets")
+
+        return tags

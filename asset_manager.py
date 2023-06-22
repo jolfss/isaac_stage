@@ -70,7 +70,7 @@ class Asset(object):
         Returns:
             str: The path of the newly created prim.
         """
-        parent_prim_path = "/" if parent_prim_path is None else parent_prim_path
+        parent_prim_path = "/World/" if parent_prim_path is None else parent_prim_path
         asset_prim_path = parent_prim_path + self.__name + F"_{self.__count}"
         self.__count += 1
         asset_prim = define_prim(asset_prim_path,"Xform")
