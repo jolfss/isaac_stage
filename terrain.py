@@ -5,6 +5,8 @@ from typing import Tuple, Union, List, MutableSequence, Sequence, Set
 
 from pxr import Gf, Vt
 import omniverse_utils
+from omni.isaac.core.materials import PhysicsMaterial
+from omni.isaac.core.prims import GeometryPrim
 
 
 class Terrain2D(ABC):
@@ -14,11 +16,14 @@ class Terrain2D(ABC):
         terrain_unit (float): The distance between samples. I.e., the 'dx' or 'dy' from one row/column of vertices to the next. 
 
     Methods:
+        terrain_fn(x, y) -> float:
+            Return the height of the terrain at (x, y), optionally sensitive to the randomize method.
+
         randomize(seed) -> None:
             Set or randomize the seed, then modify internal state to produce a new/random terrain. Optionally implemented, may have no effect on generation.
 
-        terrain_fn(x, y) -> float:
-            Return the height of the terrain at (x, y), optionally sensitive to the randomize method.
+        get_region_tags(x,y) -> Set of str:
+            Is a set of implementation-specific tags associated with the (x,y) coordinate of the terrain.
 
         create_terrain(xdim, ydim, world_translation) -> str (prim path):
             Create a triangle mesh of the terrain with dimensions xdim by ydim, centered at world_translation.
@@ -32,12 +37,28 @@ class Terrain2D(ABC):
     def terrain_fn(self, x : float, y : float) -> float :
         """The height of the terrain at (x,y), optionally sensitive to the randomize method for parametrized environments."""
         pass
-
+    
     @abstractmethod
     def randomize(self, seed) -> None :
         """Set or randomize the random seed and do whatever is necessary (modify internal state) to randomize next terrain_fn call."""
         pass
 
+    @abstractmethod
+    def get_region_tags(self, x, y) -> Set[str]:
+        """
+        A set of implementation-specific tags associated with the position (x,y) on the terrain.
+
+        Params:
+            x (float) : Location on terrain to get tag of.
+            y (float)
+
+        Usage:
+            For example, the following could be used by an external module for placing assets and spawning.
+            terrain_object.get_region_tags(0,0) = {"spawn_location", "no_assets"}
+            terrain_object.get_region_tags(0,10)= set()
+        """
+        return set()
+    
     def create_terrain(self, xdim : int, ydim : int, world_translation : Union[MutableSequence[float],Sequence[float]]) -> str:
         """
         Creates a triangle mesh of the terrain with dimensions xdim by ydim, centered at world_translation.
@@ -126,25 +147,21 @@ class Terrain2D(ABC):
         
         terrain_prim = omniverse_utils.trimesh_to_prim(prim_path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
         omniverse_utils.translate_prim(prim_path, world_translation)
-        omniverse_utils.make_static_collider(prim_path)
+        
+        static_friction: float = 1.0
+        dynamic_friction: float = 1.0
+        restitution: float = 0.0
+        
+        ground_material = PhysicsMaterial(
+            f"{terrain_prim}/groundMaterial",
+            static_friction=static_friction,
+            dynamic_friction=dynamic_friction,
+            restitution=restitution,
+        )
+         # Apply physics material to ground plane
+        GeometryPrim(path, collision=True).apply_physics_material(ground_material)
 
         return terrain_prim
-
-    @abstractmethod
-    def get_region_tags(self, x, y) -> Set[str]:
-        """
-        A set of implementation-specific tags associated with the position (x,y) on the terrain.
-
-        Params:
-            x (float): 
-            y (float): 
-
-        Usage:
-            For example, the following could be used by an external module for placing assets and spawning.
-            terrain_object.get_region_tags(0,0) = {"spawn_location", "no_assets"}
-            terrain_object.get_region_tags(0,10)= set()
-        """
-        return set()
 
 
 class WaveletTerrain(Terrain2D):
@@ -232,7 +249,6 @@ class WaveletTerrain(Terrain2D):
          
         return self.amp * smoothen(x,y) * roughen(x,y) * protect_center(x,y)
 
-
     def randomize(self, seed : Union[int, None] = None):
         """
         Randomizes the wavelet frequencies and placement of roughing and smoothing spots/nodes.
@@ -246,7 +262,6 @@ class WaveletTerrain(Terrain2D):
         self.wave_signs =           np.sign(rand.random(self.num_rough)-0.5)
         self.rough_spots =          (2*rand.random((self.num_rough,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
         self.smooth_spots =         (2*rand.random((self.num_smooth,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
-
 
     def get_region_tags(self, x, y) -> Set[str]:
         """

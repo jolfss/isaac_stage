@@ -11,7 +11,7 @@ import omni
 import omni.kit.commands
 from omni.physx.scripts import utils
 
-def context() -> omni.usd.UsdContext:
+def get_context() -> omni.usd.UsdContext:
         """
         Returns the current USD context.
 
@@ -20,7 +20,7 @@ def context() -> omni.usd.UsdContext:
         """
         return omni.usd.get_context()
 
-def stage() -> pxr.Usd.Stage:
+def get_stage() -> pxr.Usd.Stage:
         """
         Returns the current USD stage.
 
