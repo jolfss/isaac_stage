@@ -9,7 +9,8 @@ from pxr import Gf, Sdf, Vt
 # omniverse imports
 import omni
 import omni.kit.commands
-from omni.physx.scripts import utils
+from omni.isaac.core.materials import PhysicsMaterial
+from omni.isaac.core.prims import GeometryPrim
 
 def get_context() -> omni.usd.UsdContext:
         """
@@ -122,7 +123,7 @@ def trimesh_to_prim(path : str,
         """
         omni.kit.commands.execute('CreateMeshPrimWithDefaultXform', prim_type='Cube')
         omni.kit.commands.execute("MovePrim", path_from='/Cube', path_to=path)
-        cube_prim = stage().GetPrimAtPath(path)
+        cube_prim = get_stage().GetPrimAtPath(path)
 
         cube_prim.GetAttribute('faceVertexCounts').Set(faceVertexCounts)
         cube_prim.GetAttribute('faceVertexIndices').Set(faceVertexIndices)
@@ -133,8 +134,21 @@ def trimesh_to_prim(path : str,
         return path
 
 
-def make_static_collider(prim_path:str):
+
+def apply_default_ground_physics_material(prim_path : str):
+    DEFAULT_GROUND_MATERIAL = PhysicsMaterial(
+           "/Materials/groundMaterial", # NOTE: Pick an appropriate place to create this material.
+           static_friction=1.0,dynamic_friction=1.0,restitution=0.0)
+    
+    GeometryPrim(prim_path, collision=True).apply_physics_material(DEFAULT_GROUND_MATERIAL)
+
+
+def __apply_default_static_collider(prim_path:str):
     """
+    WARNING:
+        This method was deprecated because it is not leveraging the Isaac-Sim interface,
+        which is meant to abstract such low-level processes. LEFT FOR CONTEXT. 
+    
     Not entirely sure how this works--but it makes an object a static collider.
 
     Args:
@@ -146,7 +160,7 @@ def make_static_collider(prim_path:str):
 
     # Works #1
     omni.kit.commands.execute('AddPhysicsComponent',
-        usd_prim=stage().GetPrimAtPath(prim_path),
+        usd_prim=get_stage().GetPrimAtPath(prim_path),
         component='PhysicsCollisionAPI')
 
     # Works #2

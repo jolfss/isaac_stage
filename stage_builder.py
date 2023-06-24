@@ -50,7 +50,7 @@ class StageBuilder(object):
             self.__populate_assets(asset_density, global_offset)
 
 
-    def __populate_assets(self, density, world_translation : Union[MutableSequence[float],Sequence[float]]): # TODO: Potentially move this into AssetManager.
+    def __populate_assets(self, density, world_translation : Union[MutableSequence[float],Sequence[float]]):
         """
         Populates the environment with assets.
 

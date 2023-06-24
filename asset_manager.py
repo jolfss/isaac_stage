@@ -6,12 +6,6 @@ from typing import Callable, MutableSequence, Sequence, Union, List
 
 # omniverse imports
 import omniverse_utils
-import pxr
-import omni
-from omni.isaac.core.materials import PhysicsMaterial
-from omni.isaac.core.prims import GeometryPrim
-from pxr import Gf, PhysxSchema, UsdPhysics, UsdShade
-from omni.isaac.orbit.utils.kit import set_nested_collision_properties
 from omni.isaac.core.utils.prims import define_prim
 
 
@@ -22,7 +16,8 @@ class Asset(object):
         __file_path (Path): The file path of the asset.
         __name (str): The base name of the asset. Requires that this name is unique within the scene.
         __count (int): The count of instances of the asset (used to ensure unique names)
-        __applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
+        __applier (str -> None | None): A function that is called on the prim path of the asset after it is generated.
+            NOTE: Typically useful to apply a physics material, etc.            
         area (float): The area of the asset's bounding box.
 
     Methods:
@@ -45,7 +40,7 @@ class Asset(object):
 
         def calculate_area():
             temp_prim = self.insert() # TODO: Current area check requires a prim be created/destroyed, ideally this can be done without modifying the scene.
-            bounding_box = omniverse_utils.context().compute_path_world_bounding_box(temp_prim)           
+            bounding_box = omniverse_utils.get_context().compute_path_world_bounding_box(temp_prim)           
             area = np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
             omniverse_utils.delete_prim(temp_prim)
             return area

@@ -1,4 +1,3 @@
-from enum import Enum
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, MutableSequence, Sequence, Set
@@ -140,26 +139,16 @@ class Terrain2D(ABC):
         primvars_st = [(0,0)] * triangles.size
         
         terrain_id = 0 # Get unique name for the terrain.
-        while omniverse_utils.stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
+        while omniverse_utils.get_stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
             terrain_id += 1
 
         prim_path =  F"/terrain_mesh_{terrain_id}"
         
         terrain_prim = omniverse_utils.trimesh_to_prim(prim_path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
         omniverse_utils.translate_prim(prim_path, world_translation)
-        
-        static_friction: float = 1.0
-        dynamic_friction: float = 1.0
-        restitution: float = 0.0
-        
-        ground_material = PhysicsMaterial(
-            f"{terrain_prim}/groundMaterial",
-            static_friction=static_friction,
-            dynamic_friction=dynamic_friction,
-            restitution=restitution,
-        )
-         # Apply physics material to ground plane
-        GeometryPrim(path, collision=True).apply_physics_material(ground_material)
+
+        # Apply Physics Material
+        omniverse_utils.apply_default_ground_physics_material(prim_path=prim_path)
 
         return terrain_prim
 
