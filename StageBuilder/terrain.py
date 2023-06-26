@@ -3,9 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, MutableSequence, Sequence, Set
 
 from pxr import Gf, Vt
-import omniverse_utils
-from omni.isaac.core.materials import PhysicsMaterial
-from omni.isaac.core.prims import GeometryPrim
+from StageBuilder import omniverse_utils
 
 
 class Terrain2D(ABC):
@@ -144,7 +142,7 @@ class Terrain2D(ABC):
 
         prim_path =  F"/terrain_mesh_{terrain_id}"
         
-        terrain_prim = omniverse_utils.trimesh_to_prim(prim_path,faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
+        terrain_prim = omniverse_utils.trimesh_to_prim(prim_path, faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
         omniverse_utils.translate_prim(prim_path, world_translation)
 
         # Apply Physics Material

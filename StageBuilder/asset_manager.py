@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable, MutableSequence, Sequence, Union, List
 
 # omniverse imports
-import omniverse_utils
+import StageBuilder.omniverse_utils
 from omni.isaac.core.utils.prims import define_prim
 
 

@@ -1,8 +1,5 @@
-import numpy as np
-
-from omniverse_utils import *
-from asset_manager import *
-from terrain import Terrain2D
+from StageBuilder.asset_manager import *
+from StageBuilder.terrain import Terrain2D
 from pxr import *
 
 class StageBuilder(object):

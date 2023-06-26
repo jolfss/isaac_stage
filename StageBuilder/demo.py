@@ -6,10 +6,10 @@ import omni
 
 from omni.isaac.core.simulation_context import SimulationContext
 
-from asset_manager import *
-from terrain import *
+from StageBuilder.asset_manager import *
+from StageBuilder.terrain import *
 
-from stage_builder import StageBuilder
+from StageBuilder.stage_builder import StageBuilder
 
 from omni.isaac.orbit.markers import PointMarker
 
@@ -93,8 +93,8 @@ def main():
     assets_ov_industry = [ F"{os.getcwd()}/assets/ov-industrial3dpack-01-100.1.2/{category}" for category in ["Piles", "Racks", "Pallets", "Railing", "Shelves", "Containers"]]
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
-    asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.4, applier=omniverse_utils.apply_default_ground_physics_material)
-    asset_manager.register_assets_from_many_directories(assets_ov_industry, recurse=True, asset_scale=0.015, applier=omniverse_utils.apply_default_ground_physics_material)
+    # asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.4, applier=omniverse_utils.apply_default_ground_physics_material)
+    # asset_manager.register_assets_from_many_directories(assets_ov_industry, recurse=True, asset_scale=0.015, applier=omniverse_utils.apply_default_ground_physics_material)
   
     #-------------#
     #   terrain   #
@@ -109,7 +109,7 @@ def main():
     
     # create environment object and use it to modify the scene
     environment = StageBuilder(xdim=100,ydim=100,terrain=terrain,asset_manager=asset_manager)
-    environment.build_stage(global_offset=[0,0,0],spawn_assets=True,asset_density=0.2)
+    environment.build_stage(global_offset=[0,0,0],spawn_assets=False,asset_density=0.2)
 
     # everything after this line happens at until the simulation is closed
     isaac_sim_runner.run() # Process continues until closed by user or exception.
