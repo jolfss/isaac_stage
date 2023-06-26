@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, MutableSequence, Sequence, Set
 
 from pxr import Gf, Vt
-from stage_builder import omniverse_utils
+from isaac_stage import omniverse_utils
 
 
 class Terrain2D(ABC):

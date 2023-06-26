@@ -1,5 +1,7 @@
-from stage_builder.asset_manager import *
-from stage_builder.terrain import Terrain2D
+from typing import MutableSequence, Sequence, Union
+import numpy as np
+from isaac_stage.asset_manager import AssetManager, Asset
+from isaac_stage.terrain import Terrain2D
 from pxr import *
 
 class StageBuilder(object):

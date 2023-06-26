@@ -6,10 +6,9 @@ import omni
 
 from omni.isaac.core.simulation_context import SimulationContext
 
-from StageBuilder.asset_manager import *
-from StageBuilder.terrain import *
-
-from StageBuilder.stage_builder import StageBuilder
+from isaac_stage.asset_manager import *
+from isaac_stage.terrain import *
+from isaac_stage.stage_builder import StageBuilder
 
 from omni.isaac.orbit.markers import PointMarker
 
