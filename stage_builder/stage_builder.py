@@ -1,5 +1,5 @@
-from StageBuilder.asset_manager import *
-from StageBuilder.terrain import Terrain2D
+from stage_builder.asset_manager import *
+from stage_builder.terrain import Terrain2D
 from pxr import *
 
 class StageBuilder(object):

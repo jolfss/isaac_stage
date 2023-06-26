@@ -133,7 +133,37 @@ def trimesh_to_prim(path : str,
 
         return path
 
+def get_pose(prim_path):
+    """
+    NOTE: This is a likely suspect if anything seems weird.
+    returns: [x, y, z, qx, qy, qz, qw] of prim at prim_path
+    """
+    stage = get_stage()
+    if not stage:
+        return
 
+    # Get position directly from USD
+    prim = stage.GetPrimAtPath(prim_path)
+
+    loc = prim.GetAttribute(
+        "xformOp:translate"
+    )  # VERY IMPORTANT: change to translate to make it translate instead of scale
+    rot = prim.GetAttribute("xformOp:orient")
+    rot = rot.Get()
+    loc = loc.Get()
+    str_nums = str(rot)[1:-1]
+    str_nums = str_nums.replace(" ", "")
+    str_nums = str_nums.split(",")
+
+    rot = []
+    for s in str_nums:
+        rot.append(float(s))
+
+    #rot = wvn_utils.euler_of_quat(rot)
+
+    pose = [loc[0], loc[1], loc[2], rot[0], rot[1], rot[2], rot[3]]
+
+    return pose
 
 def apply_default_ground_physics_material(prim_path : str):
     DEFAULT_GROUND_MATERIAL = PhysicsMaterial(
