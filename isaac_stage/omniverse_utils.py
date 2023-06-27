@@ -1,6 +1,6 @@
 # general python imports
 import numpy as np
-from typing import List, Tuple, Union, Sequence, MutableSequence
+from typing import List, Tuple, Union, Sequence, MutableSequence, Callable
 
 # pxr
 import pxr
@@ -17,7 +17,7 @@ def get_context() -> omni.usd.UsdContext:
         Returns the current USD context.
 
         Returns:
-            omni.usd.context.UsdContext: The current USD context.
+            omni.usd.UsdContext: The current USD context.
         """
         return omni.usd.get_context()
 
@@ -26,9 +26,19 @@ def get_stage() -> pxr.Usd.Stage:
         Returns the current USD stage.
 
         Returns:
-            pxr.Usd.Stage: The current USD stage.
+            Usd.Stage: The current USD stage.
         """
         return omni.usd.get_context().get_stage()
+
+def is_prim_defined(path: str) -> bool:
+    """
+    Check whether a prim with the given path is defined on the current stage.
+
+    Parameters:
+    path (str): The path to the prim.
+    """
+    prim = get_stage().GetPrimAtPath(path)
+    return prim.IsValid()
 
 # NOTE: May be deprecated/repurposed because transform is more general and *meant* for a single translation.
 # This one uses a *multi* prim method on a single prim.
@@ -132,6 +142,76 @@ def trimesh_to_prim(path : str,
         cube_prim.GetAttribute('primvars:st').Set(primvars_st)
 
         return path
+
+def apply_appliers(applier_list : List[Callable[[str],None]]) -> Callable[[str],None]:
+    """
+    Defines an applier over a prim_path (str) given a list of appliers of prim_paths.
+    """
+    return lambda prim_path : [ applier(prim_path) for applier in applier_list]
+            
+
+def apply_color_to_prim(prim_path: str, color: tuple):
+    """
+    Apply an RGB color to a prim.
+
+    Parameters:
+    prim_path (str): The path to the prim.
+    color (tuple): The RGB color to apply as a tuple of three floats.
+    """
+    # Get the prim
+    stage = get_stage()
+    prim = stage.GetPrimAtPath(prim_path)
+
+    if not prim or not prim.IsA(pxr.UsdGeom.Mesh):
+        print(f"No Mesh prim at path: {prim_path}")
+        return
+
+    # Create a shader (simple UsdPreviewSurface with constant color)
+    shader = pxr.UsdShade.Shader.Define(stage, f'{prim_path}/ColorShader')
+    shader.CreateIdAttr('UsdPreviewSurface')
+    shader.CreateInput('diffuseColor', Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+
+    # Create a Material and connect the shader to its surface terminal
+    material = pxr.UsdShade.Material.Define(stage, f'{prim_path}/ColorMaterial')
+    material.CreateSurfaceOutput().ConnectToSource(shader, 'surface')
+
+    # Bind the Material to the Mesh
+    pxr.UsdShade.MaterialBindingAPI(prim).Bind(material) 
+
+__global_make_triangle_count=0
+def make_triangle(vertices : Union[
+      MutableSequence[MutableSequence[float]],
+      MutableSequence[Sequence[float]],
+      Sequence[MutableSequence[float]],
+      Sequence[Sequence[float]]],
+      applier : Union[Callable[[str],None],None]) -> str:
+    """
+    Writes a mesh containing a single triangle into the scene.
+
+    Args:
+        vertices ((float subscriptable @ 0,1,2) subscriptable @ 0,1,2): Vertices of the triangle.
+        i.e. vertices[0:3][0:3] 
+        applier (str -> None | None): An optional function to apply to the prim once it is created.
+    
+    Returns:
+        The prim path of the triangle created. 
+    """
+
+    global __global_make_triangle_count
+    while is_prim_defined(F"/World/Triangle_{__global_make_triangle_count}"):
+          __global_make_triangle_count += 1
+
+    prim_path = F"/World/Triangle_{__global_make_triangle_count}"
+    mesh = pxr.UsdGeom.Mesh.Define(get_stage(), prim_path)
+
+    # Set up vertex data
+    mesh.CreatePointsAttr([Gf.Vec3f(vertices[0][0], vertices[0][1], vertices[0][2]), Gf.Vec3f(vertices[1][0], vertices[1][1], vertices[1][2]), Gf.Vec3f(vertices[2][0], vertices[2][1], vertices[2][2])])
+    mesh.CreateFaceVertexCountsAttr([3])
+    mesh.CreateFaceVertexIndicesAttr([0, 1, 2])
+
+    if applier:
+          applier(prim_path)
+    return prim_path
 
 def get_pose(prim_path):
     """

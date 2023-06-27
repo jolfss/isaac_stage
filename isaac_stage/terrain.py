@@ -1,6 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, List, MutableSequence, Sequence, Set
+from typing import Tuple, Union, List, MutableSequence, Sequence, Set, Callable
 
 from pxr import Gf, Vt
 from isaac_stage import omniverse_utils
@@ -26,9 +26,10 @@ class Terrain2D(ABC):
             Create a triangle mesh of the terrain with dimensions xdim by ydim, centered at world_translation.
     """
 
-    def __init__(self, terrain_unit : float):
-        """Initialize a Terrain with a set generation resolution."""
+    def __init__(self, terrain_unit : float, applier : Union[Callable[[str],None],None]):
+        """Initialize a Terrain with a set generation resolution and optional applier."""
         self.terrain_unit = terrain_unit 
+        self.applier = applier
 
     @abstractmethod
     def terrain_fn(self, x : float, y : float) -> float :
@@ -145,8 +146,9 @@ class Terrain2D(ABC):
         terrain_prim = omniverse_utils.trimesh_to_prim(prim_path, faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
         omniverse_utils.translate_prim(prim_path, world_translation)
 
-        # Apply Physics Material
-        omniverse_utils.apply_default_ground_physics_material(prim_path=prim_path)
+        # Apply Applier
+        if self.applier:
+            self.applier(prim_path)
 
         return terrain_prim
 
@@ -155,7 +157,7 @@ class WaveletTerrain(Terrain2D):
     """A terrain made of wavelets with localized damping and a flat patch.
 
     Methods:
-        __init__(self, terrain_unit=0.5, seed=None, xdim=100, ydim=100, amp=8, low=0, high=2, num_rough=80, num_smooth=40, roughness=100, smoothness=70, protect=(0.0, 0.0), protect_radius=10, protect_decay=2):
+        __init__(self, terrain_unit=0.5, applier=omniverse_utils.apply_default_ground_physics_material, seed=None, xdim=100, ydim=100, amp=8, low=0, high=2, num_rough=80, num_smooth=40, roughness=100, smoothness=70, protect=(0.0, 0.0), protect_radius=10, protect_decay=2):
             Initializes a new instance of the WaveletTerrain class with the specified parameters.
 
         randomize(self, seed=None):
@@ -165,7 +167,8 @@ class WaveletTerrain(Terrain2D):
             Computes the height of the terrain at the given (x, y) coordinates."""
 
     def __init__(self, 
-                 terrain_unit : float = 0.5, 
+                 terrain_unit : float = 0.5,
+                 applier = omniverse_utils.apply_default_ground_physics_material, 
                  seed : Union[int, None] = None,
                  xdim : int = 100, 
                  ydim : int = 100, 
@@ -181,6 +184,8 @@ class WaveletTerrain(Terrain2D):
                  protect_decay : float = 2):
         """
         Parameters:
+            terrain_unit (float): The physical gap between vertices in the terrain mesh (dx per row and column)
+            applier (str -> None | None): A function to apply upon creation of the terrain prim.
             seed (int): Seed for randomization
                 (NOTE: None -> a random seed is chosen)
             xdim,ydim (int): Intended domain for sampling x \\in [-xdim/2,ydim/2], y \\in [-ydim/2,ydim/2]
@@ -193,7 +198,7 @@ class WaveletTerrain(Terrain2D):
             protect_radius (float): The radius to leave flat around the protected patch
             protect_decay (float): Gets smoother as protect_decay increases, requires >= 0.""" 
         # satisfy subclass
-        super().__init__(terrain_unit)
+        super().__init__(terrain_unit, applier)
         # initialize constant parameters
         self.xdim, self.ydim = xdim, ydim
         self.amp = amp
