@@ -158,25 +158,79 @@ def apply_color_to_prim(prim_path: str, color: tuple):
     prim_path (str): The path to the prim.
     color (tuple): The RGB color to apply as a tuple of three floats.
     """
-    # Get the prim
     stage = get_stage()
+
+    # Access the prim
     prim = stage.GetPrimAtPath(prim_path)
 
-    if not prim or not prim.IsA(pxr.UsdGeom.Mesh):
-        print(f"No Mesh prim at path: {prim_path}")
+    # Check if the prim exists
+    if not prim:
+        print(f'Error: No prim at {prim_path}')
         return
 
-    # Create a shader (simple UsdPreviewSurface with constant color)
-    shader = pxr.UsdShade.Shader.Define(stage, f'{prim_path}/ColorShader')
-    shader.CreateIdAttr('UsdPreviewSurface')
-    shader.CreateInput('diffuseColor', Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+    # Get the UsdGeom interface for the prim
+    prim_geom = pxr.UsdGeom.Gprim(prim)
 
-    # Create a Material and connect the shader to its surface terminal
-    material = pxr.UsdShade.Material.Define(stage, f'{prim_path}/ColorMaterial')
-    material.CreateSurfaceOutput().ConnectToSource(shader, 'surface')
+    # Create a color attribute if it doesn't exist
+    if not prim_geom.GetDisplayColorAttr().HasAuthoredValueOpinion():
+        prim_geom.GetDisplayColorAttr().Set([Gf.Vec3f(*color)])
 
-    # Bind the Material to the Mesh
-    pxr.UsdShade.MaterialBindingAPI(prim).Bind(material) 
+    # Set the color
+    else:
+        prim_geom.GetDisplayColorAttr().Set([Gf.Vec3f(*color)])
+
+    # # Get the prim
+    # stage = get_stage()
+    # prim = stage.GetPrimAtPath(prim_path)
+
+    # if not prim or not prim.IsA(pxr.UsdGeom.Mesh):
+    #     print(f"No Mesh prim at path: {prim_path}")
+    #     return
+
+    # # Create a shader (simple UsdPreviewSurface with constant color)
+    # shader = pxr.UsdShade.Shader.Define(stage, f'{prim_path}/ColorShader')
+    # shader.CreateIdAttr('UsdPreviewSurface')
+    # shader.CreateInput('diffuseColor', Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+
+    # # Create a Material and connect the shader to its surface terminal
+    # material = pxr.UsdShade.Material.Define(stage, f'{prim_path}/ColorMaterial')
+    # material.CreateSurfaceOutput().ConnectToSource(shader, 'surface')
+
+    # # Bind the Material to the Mesh
+    # pxr.UsdShade.MaterialBindingAPI(prim).Bind(material) 
+
+__global_make_sphere_count=0
+def make_sphere(position : Union[MutableSequence[float],Sequence[float]], radius : float, applier : Union[Callable[[str],None],None]) -> str:
+    """
+    Writes a sphere into the scene.
+
+    Args:
+        position (float subscriptable @ 0,1,2): Center of the sphere.
+        i.e. vertices[0:3][0:3] 
+        applier (str -> None | None): An optional function to apply to the prim once it is created.
+    
+    Returns:
+        The prim path of the sphere created. 
+    """
+    global __global_make_sphere_count
+    while is_prim_defined(F"/World/Sphere_{__global_make_sphere_count}"):
+          __global_make_sphere_count += 1
+
+    prim_path = F"/World/Sphere_{__global_make_sphere_count}"
+
+    # Define a Sphere
+    sphere = pxr.UsdGeom.Sphere.Define(get_stage(), prim_path)
+
+    # Set the radius
+    sphere.CreateRadiusAttr(radius)
+
+    # Create a transform
+    xform = pxr.UsdGeom.Xformable(sphere.GetPrim())
+    xform.AddTranslateOp().Set(Gf.Vec3d(float(position[0]),float(position[1]),float(position[2])))
+
+    if applier:
+          applier(pxr.Sdf.Path(prim_path))
+    return prim_path
 
 __global_make_triangle_count=0
 def make_triangle(vertices : Union[
@@ -196,7 +250,6 @@ def make_triangle(vertices : Union[
     Returns:
         The prim path of the triangle created. 
     """
-
     global __global_make_triangle_count
     while is_prim_defined(F"/World/Triangle_{__global_make_triangle_count}"):
           __global_make_triangle_count += 1
@@ -205,7 +258,9 @@ def make_triangle(vertices : Union[
     mesh = pxr.UsdGeom.Mesh.Define(get_stage(), prim_path)
 
     # Set up vertex data
-    mesh.CreatePointsAttr([Gf.Vec3f(vertices[0][0], vertices[0][1], vertices[0][2]), Gf.Vec3f(vertices[1][0], vertices[1][1], vertices[1][2]), Gf.Vec3f(vertices[2][0], vertices[2][1], vertices[2][2])])
+    mesh.CreatePointsAttr([Gf.Vec3f(float(vertices[0][0]), float(vertices[0][1]), float(vertices[0][2])), 
+                           Gf.Vec3f(float(vertices[1][0]), float(vertices[1][1]), float(vertices[1][2])), 
+                           Gf.Vec3f(float(vertices[2][0]), float(vertices[2][1]), float(vertices[2][2]))])
     mesh.CreateFaceVertexCountsAttr([3])
     mesh.CreateFaceVertexIndicesAttr([0, 1, 2])
 

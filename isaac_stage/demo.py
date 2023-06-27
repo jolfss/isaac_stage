@@ -59,7 +59,6 @@ class IsaacSimRunner(object):
 
         self._world.reset()
 
-
         self._world.add_physics_callback("IsaacRunner_Physics", self.on_physics_step) # Necessary for physics raytracing calls to be run. See method rayTraceRandomPoints
         
         # change to sim running
