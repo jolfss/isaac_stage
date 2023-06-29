@@ -2,7 +2,7 @@
 import os
 import numpy as np
 from pathlib import Path
-from typing import Callable, MutableSequence, Sequence, Union, List
+from typing import Callable, Sequence, Union, List
 
 # omniverse imports
 from isaac_stage import omniverse_utils
@@ -49,10 +49,10 @@ class Asset(object):
 
     def insert(self, 
                parent_prim_path : Union[str, None]=None, 
-               translation      : Union[MutableSequence[float],Sequence[float]]=(0.0,0.0,0.0), 
-               rotation         : Union[MutableSequence[float],Sequence[float]]=(0.0,0.0,0.0), 
-               rotation_order   : Union[MutableSequence[int],Sequence[int]]=(0,1,2), 
-               scale            : Union[MutableSequence[float],Sequence[float]]=(1,1,1)):
+               translation      : Sequence[float]=(0.0,0.0,0.0), 
+               rotation         : Sequence[float]=(0.0,0.0,0.0), 
+               rotation_order   : Sequence[float]=(0,1,2), 
+               scale            : Sequence[float]=(1,1,1)):
         """Inserts this asset as prim into the current scene and returns its path.
 
         Args:
