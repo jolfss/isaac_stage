@@ -1,6 +1,7 @@
 # general python imports
 import numpy as np
 from typing import List, Tuple, Union, Sequence, MutableSequence, Callable
+from pathlib import Path
 
 # pxr
 import pxr
@@ -12,6 +13,10 @@ import omni.kit.commands
 from omni.isaac.core.materials import PhysicsMaterial
 from omni.isaac.core.prims import GeometryPrim
 
+#--------------------------#
+#   usd management utils   #
+#--------------------------#
+
 def get_context() -> omni.usd.UsdContext:
         """
         Returns the current USD context.
@@ -21,6 +26,24 @@ def get_context() -> omni.usd.UsdContext:
         """
         return omni.usd.get_context()
 
+def open_stage(input_file_path : Path):
+    """
+    Loads a .usd stage.
+
+    NOTE: Needs to be called quite early in the pipeline. Before physics_dt, render_dt, and SimulationContext are initialized.
+    NOTE: Not sure why--it looks like it could be a labeling collision with the physics context and other things like it.
+
+    Args:
+        input_file_path (Path): Path relative to current working directory of the stage to open.
+        NOTE: Can be .usd, .usda, .usdc, (and maybe .usdz ?)
+
+    Example: 
+        open_stage(Path("../stages/example_stage.usda"))    NOTE: cwd is '/home/*' for this example
+        opens --> "/home/stages/example_stage.usda"  
+
+    """
+    get_context().open_stage(str(Path(Path.cwd(),input_file_path).resolve()))
+
 def get_stage() -> pxr.Usd.Stage:
         """
         Returns the current USD stage.
@@ -29,6 +52,20 @@ def get_stage() -> pxr.Usd.Stage:
             Usd.Stage: The current USD stage.
         """
         return omni.usd.get_context().get_stage()
+
+def save_stage(output_file_path : Path):
+    """
+    Saves the current stage to a file.
+
+    Args:
+        output_file_path (Path): Path relative to current working directory for where to save the stage.
+        NOTE: Can be saved as .usd, .usda, .usdc, .usdz
+
+    Example: 
+        save_stage(Path("../stages/example_stage.usda"))    NOTE: cwd is '/home/*' for this example
+        saves to --> "/home/stages/example_stage.usda"  
+    """
+    get_stage().Export(str(Path(Path.cwd(),output_file_path).resolve()))
 
 def is_prim_defined(path: str) -> bool:
     """
@@ -42,7 +79,7 @@ def is_prim_defined(path: str) -> bool:
 
 # NOTE: May be deprecated/repurposed because transform is more general and *meant* for a single translation.
 # This one uses a *multi* prim method on a single prim.
-def translate_prim(prim_path : str, offset : Union[MutableSequence,Sequence]):
+def translate_prim(prim_path : str, offset : Sequence):
         """
         Translates a USD primitive at the given path by the given offset.
 
@@ -81,10 +118,10 @@ def delete_prim(prim_path : str, destructive : bool=True):
                 destructive=destructive)
 
 def transform_prim(prim_path : str, 
-                   translation  : Union[MutableSequence[float],Sequence[float]] = (0.0, 0.0, 0.0), 
-                   rotation     : Union[MutableSequence[float],Sequence[float]] = [0.0, 0.0, 0.0], 
-                   rotation_order : Union[MutableSequence[int],Sequence[int]]   = (0,1,2), 
-                   scale        : Union[MutableSequence[float],Sequence[float]] = (1.0, 1.0, 1.0)):
+                   translation  : Sequence[float] = (0.0, 0.0, 0.0), 
+                   rotation     : Sequence[float] = [0.0, 0.0, 0.0], 
+                   rotation_order : Sequence[int]   = (0,1,2), 
+                   scale        : Sequence[float] = (1.0, 1.0, 1.0)):
         """
         Transforms a USD primitive using the given translation, rotation, scale, and rotation order.
 
@@ -111,7 +148,45 @@ def transform_prim(prim_path : str,
                 old_scale=Gf.Vec3d(1.0, 1.0, 1.0),
         )
 
-def trimesh_to_prim(path : str, 
+def get_pose(prim_path):
+    """
+    NOTE: This is a likely suspect if anything seems weird.
+    returns: [x, y, z, qx, qy, qz, qw] of prim at prim_path
+    """
+    stage = get_stage()
+    if not stage:
+        return
+
+    # Get position directly from USD
+    prim = stage.GetPrimAtPath(prim_path)
+
+    loc = prim.GetAttribute(
+        "xformOp:translate"
+    )  # VERY IMPORTANT: change to translate to make it translate instead of scale
+    rot = prim.GetAttribute("xformOp:orient")
+    rot = rot.Get()
+    loc = loc.Get()
+    str_nums = str(rot)[1:-1]
+    str_nums = str_nums.replace(" ", "")
+    str_nums = str_nums.split(",")
+
+    rot = []
+    for s in str_nums:
+        rot.append(float(s))
+
+    #rot = wvn_utils.euler_of_quat(rot)
+
+    pose = [loc[0], loc[1], loc[2], rot[0], rot[1], rot[2], rot[3]]
+
+    return pose
+
+#-------------------------#
+#   prim creation utils   #
+#-------------------------#
+
+### methods ###
+
+def create_prim_trimesh(path : str, 
                     faceVertexCounts : List[int], 
                     faceVertexIndices : np.ndarray, 
                     normals : np.ndarray, 
@@ -143,13 +218,204 @@ def trimesh_to_prim(path : str,
 
         return path
 
+__global_make_triangle_count=0
+def create_prim_triangle(vertices : Union[
+      MutableSequence[MutableSequence[float]],
+      MutableSequence[Sequence[float]],
+      Sequence[MutableSequence[float]],
+      Sequence[Sequence[float]]],
+      applier : Union[Callable[[str],None],None]) -> str:
+    """
+    Writes a mesh containing a single triangle into the scene.
+
+    Args:
+        vertices ((float subscriptable @ 0,1,2) subscriptable @ 0,1,2): Vertices of the triangle.
+        i.e. vertices[0:3][0:3] 
+        applier (str -> None | None): An optional function to apply to the prim once it is created.
+    
+    Returns:
+        The prim path of the triangle created. 
+    """
+    global __global_make_triangle_count
+    while is_prim_defined(F"/World/Triangle_{__global_make_triangle_count}"):
+          __global_make_triangle_count += 1
+
+    prim_path = F"/World/Triangle_{__global_make_triangle_count}"
+    mesh = pxr.UsdGeom.Mesh.Define(get_stage(), prim_path)
+
+    # Set up vertex data
+    mesh.CreatePointsAttr([Gf.Vec3f(float(vertices[0][0]), float(vertices[0][1]), float(vertices[0][2])), 
+                           Gf.Vec3f(float(vertices[1][0]), float(vertices[1][1]), float(vertices[1][2])), 
+                           Gf.Vec3f(float(vertices[2][0]), float(vertices[2][1]), float(vertices[2][2]))])
+    mesh.CreateFaceVertexCountsAttr([3])
+    mesh.CreateFaceVertexIndicesAttr([0, 1, 2])
+
+    if applier:
+          applier(prim_path)
+
+    return prim_path
+
+__global_make_sphere_count=0
+def create_prim_sphere(position : Sequence[float], radius : float, applier : Union[Callable[[str],None],None]) -> str:
+    """
+    Writes a sphere into the scene.
+
+    Args:
+        position (float subscriptable @ 0,1,2): Center of the sphere.
+        i.e. vertices[0:3][0:3] 
+        applier (str -> None | None): An optional function to apply to the prim once it is created.
+    
+    Returns:
+        The prim path of the sphere created. 
+    """
+    global __global_make_sphere_count
+    while is_prim_defined(F"/World/Sphere_{__global_make_sphere_count}"):
+          __global_make_sphere_count += 1
+
+    prim_path = F"/World/Sphere_{__global_make_sphere_count}"
+
+    # Define a Sphere
+    sphere = pxr.UsdGeom.Sphere.Define(get_stage(), prim_path)
+
+    # Set the radius
+    sphere.CreateRadiusAttr(radius)
+
+    # Create a transform
+    xform = pxr.UsdGeom.Xformable(sphere.GetPrim())
+    xform.AddTranslateOp().Set(Gf.Vec3d(float(position[0]),float(position[1]),float(position[2])))
+
+    if applier:
+          applier(pxr.Sdf.Path(prim_path))
+    return prim_path
+
+def create_light_dome(intensity : float) -> str:
+    """Creates a dome light with a given intensity"""
+    omni.kit.commands.execute('CreatePrim',
+        prim_type='DomeLight',
+        attributes={'intensity': intensity, 'texture:format': 'latlong'})
+
+# Omniverse's default dynamic skyboxes.
+DEFAULT_DYNAMIC_SKIES= {sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Dynamic/{sky_name}.usd" \
+                                   for sky_name in ["Cirrus", "ClearSky", "CloudySky", "CumulusHeavy", "CumulusLight", "NightSky", "Overcast"]}
+def create_sky_dynamic(dynamic_sky_path : str):
+    """Creates a dynamic sky from one of the Omniverse defaults.
+
+    Args:
+        dynamic_sky_path (str): Path to the location of a .usd file which satisfies the dynamic sky properties..
+        NOTE: The default paths can be easily accessed via the dictionary DEFAULT_DYNAMIC_SKIES[sky_name]
+        Possible values of sky_name can be found below.
+    
+    Effects:
+        Creates (or sets--not tested) the sky at /Environment/sky
+
+    Options: Cirrus, ClearSky, CloudySky, CumulusHeavy, CumulusLight, NightSky, Overcast"""
+    omni.kit.commands.execute('CreateDynamicSkyCommand',
+        sky_url=F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Dynamic/{default_dynamic_sky_path}.usd",
+        sky_path='/Environment/sky')
+    
+# Omniverse's default HDR-imaged, static skyboxes.
+__DEFAULT_HDRI_CLEAR_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Clear/{sky_name}.hdr" \
+                                   for sky_name in ["evening_road_01_4k", "kloppenheim_02_4k", "mealie_road_4k", "noon_grass_4k", 
+                                                    "qwantani_4k", "signal_hill_sunrise_4k", "sunflowers_4k","syferfontein_18d_clear_4k",
+                                                    "venice_sunset_4k","white_cliff_top_4k"]}
+__DEFAULT_HDRI_CLOUDY_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Cloudy/{sky_name}.hdr" \
+                                   for sky_name in ["abandoned_parking_4k", "champagne_castle_1_4k", "evening_road_01_4k", 
+                                                    "kloofendal_48d_partly_cloudy_4k", "lakeside_4k", "sunflowers_4k", 
+                                                    "table_mountain_1_4k"]}
+__DEFAULT_HDRI_EVENING_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Evening/{sky_name}.hdr" \
+                                   for sky_name in ["evening_road_01_4k"]}
+__DEFAULT_HDRI_INDOOR_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Indoor/{sky_name}.hdr" \
+                                   for sky_name in ["adams_place_bridge_4k","autoshop_01_4k","bathroom_4k","carpentry_shop_01_4k",
+                                                    "en_suite_4k","entrance_hall_4k","hospital_room_4k","hotel_room_4k","lebombo_4k",
+                                                    "old_bus_depot_4k","small_empty_house_4k","studio_small_04_4k","surgery_4k",
+                                                    "vulture_hide_4k","wooden_lounge_4k","ZetoCG_com_WarehouseInterior2b",
+                                                    "ZetoCGcom_Exhibition_Hall_Interior1"]}
+__DEFAULT_HDRI_NIGHT_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Night/{sky_name}.hdr" \
+                                   for sky_name in ["kloppenheim_02_4k","moonlit_golf_4k"]}
+__DEFAULT_HDRI_STORM_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Storm/{sky_name}.hdr" \
+                                   for sky_name in ["approaching_storm_4k"]}
+__DEFAULT_HDRI_STUDIO_SKIES={sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Studio/{sky_name}.hdr" \
+                                   for sky_name in ["photo_studio_01_4k","studio_small_05_4k","studio_small_07_4k"]}
+# Primary dictionary containing the above sub-dictionaries.
+DEFAULT_HDRI_SKIES = { "Clear" : __DEFAULT_HDRI_CLEAR_SKIES,"Cloudy" : __DEFAULT_HDRI_CLOUDY_SKIES,"Evening" : __DEFAULT_HDRI_EVENING_SKIES,
+                        "Indoor" : __DEFAULT_HDRI_INDOOR_SKIES,"Night" : __DEFAULT_HDRI_NIGHT_SKIES, "Storm" : __DEFAULT_HDRI_STORM_SKIES,
+                        "Studio" : __DEFAULT_HDRI_STUDIO_SKIES,}
+def create_sky_hdri(hdri_sky_path : str):
+    """Creates a static HDR-imaged sky from one of the Omniverse defaults.
+
+    Args:
+        hdri_sky_path (str): Path to the location of a .hdr file for a skybox.
+        NOTE: The default paths can be easily accessed via the dictionary DEFAULT_HDRI_SKIES[sky_folder][sky_name]
+        Possible values for sky_folder and sky_name can be found below.
+
+    Effects:
+        Creates (or sets--not tested) a sky at /Environment/sky
+
+    Options:
+        [sky_folder]
+            [sky_name]
+        Clear
+            evening_road_01_4k
+            kloppenheim_02_4k
+            mealie_road_4k
+            noon_grass_4k
+            qwantani_4k
+            signal_hill_sunrise_4k
+            sunflowers_4k
+            syferfontein_18d_clear_4k
+            venice_sunset_4k
+            white_cliff_top_4k
+        Cloudy
+            abandoned_parking_4k
+            champagne_castle_1_4k
+            evening_road_01_4k
+            kloofendal_48d_partly_cloudy_4k
+            lakeside_4k
+            sunflowers_4k
+            table_mountain_1_4k
+        Evening
+            evening_road_01_4k
+        Indoor
+            adams_place_bridge_4k
+            autoshop_01_4k
+            bathroom_4k
+            carpentry_shop_01_4k
+            en_suite_4k
+            entrance_hall_4k
+            hospital_room_4k
+            hotel_room_4k
+            lebombo_4k
+            old_bus_depot_4k
+            small_empty_house_4k
+            studio_small_04_4k
+            surgery_4k
+            vulture_hide_4k
+            wooden_lounge_4k
+            ZetoCG_com_WarehouseInterior2b
+            ZetoCGcom_Exhibition_Hall_Interior1
+        Night
+            kloppenheim_02_4k
+            moonlit_golf_4k
+        Storm
+            approaching_storm_4k
+        Studio
+            photo_studio_01_4k
+            studio_small_05_4k
+            studio_small_07_4k"""
+    omni.kit.commands.execute('CreateHdriSkyCommand',
+        sky_url=hdri_sky_path,
+        sky_path='/Environment/sky')
+
+#--------------------------------#
+#   prim functional operations   #
+#--------------------------------#
+
 def apply_appliers(applier_list : List[Callable[[str],None]]) -> Callable[[str],None]:
     """
     Defines an applier over a prim_path (str) given a list of appliers of prim_paths.
     """
-    return lambda prim_path : [ applier(prim_path) for applier in applier_list]
+    return lambda prim_path : [ applier(prim_path) for applier in applier_list][0]
             
-
 def apply_color_to_prim(prim_path: str, color: tuple):
     """
     Apply an RGB color to a prim.
@@ -199,114 +465,12 @@ def apply_color_to_prim(prim_path: str, color: tuple):
     # # Bind the Material to the Mesh
     # pxr.UsdShade.MaterialBindingAPI(prim).Bind(material) 
 
-__global_make_sphere_count=0
-def make_sphere(position : Union[MutableSequence[float],Sequence[float]], radius : float, applier : Union[Callable[[str],None],None]) -> str:
-    """
-    Writes a sphere into the scene.
-
-    Args:
-        position (float subscriptable @ 0,1,2): Center of the sphere.
-        i.e. vertices[0:3][0:3] 
-        applier (str -> None | None): An optional function to apply to the prim once it is created.
-    
-    Returns:
-        The prim path of the sphere created. 
-    """
-    global __global_make_sphere_count
-    while is_prim_defined(F"/World/Sphere_{__global_make_sphere_count}"):
-          __global_make_sphere_count += 1
-
-    prim_path = F"/World/Sphere_{__global_make_sphere_count}"
-
-    # Define a Sphere
-    sphere = pxr.UsdGeom.Sphere.Define(get_stage(), prim_path)
-
-    # Set the radius
-    sphere.CreateRadiusAttr(radius)
-
-    # Create a transform
-    xform = pxr.UsdGeom.Xformable(sphere.GetPrim())
-    xform.AddTranslateOp().Set(Gf.Vec3d(float(position[0]),float(position[1]),float(position[2])))
-
-    if applier:
-          applier(pxr.Sdf.Path(prim_path))
-    return prim_path
-
-__global_make_triangle_count=0
-def make_triangle(vertices : Union[
-      MutableSequence[MutableSequence[float]],
-      MutableSequence[Sequence[float]],
-      Sequence[MutableSequence[float]],
-      Sequence[Sequence[float]]],
-      applier : Union[Callable[[str],None],None]) -> str:
-    """
-    Writes a mesh containing a single triangle into the scene.
-
-    Args:
-        vertices ((float subscriptable @ 0,1,2) subscriptable @ 0,1,2): Vertices of the triangle.
-        i.e. vertices[0:3][0:3] 
-        applier (str -> None | None): An optional function to apply to the prim once it is created.
-    
-    Returns:
-        The prim path of the triangle created. 
-    """
-    global __global_make_triangle_count
-    while is_prim_defined(F"/World/Triangle_{__global_make_triangle_count}"):
-          __global_make_triangle_count += 1
-
-    prim_path = F"/World/Triangle_{__global_make_triangle_count}"
-    mesh = pxr.UsdGeom.Mesh.Define(get_stage(), prim_path)
-
-    # Set up vertex data
-    mesh.CreatePointsAttr([Gf.Vec3f(float(vertices[0][0]), float(vertices[0][1]), float(vertices[0][2])), 
-                           Gf.Vec3f(float(vertices[1][0]), float(vertices[1][1]), float(vertices[1][2])), 
-                           Gf.Vec3f(float(vertices[2][0]), float(vertices[2][1]), float(vertices[2][2]))])
-    mesh.CreateFaceVertexCountsAttr([3])
-    mesh.CreateFaceVertexIndicesAttr([0, 1, 2])
-
-    if applier:
-          applier(prim_path)
-    return prim_path
-
-def get_pose(prim_path):
-    """
-    NOTE: This is a likely suspect if anything seems weird.
-    returns: [x, y, z, qx, qy, qz, qw] of prim at prim_path
-    """
-    stage = get_stage()
-    if not stage:
-        return
-
-    # Get position directly from USD
-    prim = stage.GetPrimAtPath(prim_path)
-
-    loc = prim.GetAttribute(
-        "xformOp:translate"
-    )  # VERY IMPORTANT: change to translate to make it translate instead of scale
-    rot = prim.GetAttribute("xformOp:orient")
-    rot = rot.Get()
-    loc = loc.Get()
-    str_nums = str(rot)[1:-1]
-    str_nums = str_nums.replace(" ", "")
-    str_nums = str_nums.split(",")
-
-    rot = []
-    for s in str_nums:
-        rot.append(float(s))
-
-    #rot = wvn_utils.euler_of_quat(rot)
-
-    pose = [loc[0], loc[1], loc[2], rot[0], rot[1], rot[2], rot[3]]
-
-    return pose
-
 def apply_default_ground_physics_material(prim_path : str):
     DEFAULT_GROUND_MATERIAL = PhysicsMaterial(
            "/Materials/groundMaterial", # NOTE: Pick an appropriate place to create this material.
            static_friction=1.0,dynamic_friction=1.0,restitution=0.0)
     
     GeometryPrim(prim_path, collision=True).apply_physics_material(DEFAULT_GROUND_MATERIAL)
-
 
 def __apply_default_static_collider(prim_path:str):
     """

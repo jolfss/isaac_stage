@@ -1,14 +1,15 @@
 from omni.isaac.kit import SimulationApp
 simulation_app = SimulationApp({"headless": False})
 
+from pathlib import Path
 import omni    
-
 
 from omni.isaac.core.simulation_context import SimulationContext
 
 from isaac_stage.asset_manager import *
 from isaac_stage.terrain import *
-from isaac_stage.stage_builder import StageBuilder
+from isaac_stage.stage_builder import StageBuilder, ConstructionStageBuilder
+from omniverse_utils import get_context
 
 from omni.isaac.orbit.markers import PointMarker
 
@@ -29,18 +30,18 @@ class IsaacSimRunner(object):
         physics_dt = 1 / 100.0
         render_dt = 1 / 30.0
         self._world = SimulationContext(stage_units_in_meters=1.0, physics_dt=physics_dt, rendering_dt=render_dt, backend="torch")
+        
+        # #points used to debug raytracer
+        # self._num_points= 100
+        # self._points = (np.random.rand(self._num_points,3)-0.5)*100
+        # self._points[:,2] = self._points[:,2]*0+10  #sets the z height to 10
+        # #raytracer and output storage 
+        # self._physx_query_interface = omni.physx.get_physx_scene_query_interface()
+        # self._debug_points: List[PointMarker] = list()
 
-        #points used to debug raytracer
-        self._num_points= 100
-        self._points = (np.random.rand(self._num_points,3)-0.5)*100
-        self._points[:,2] = self._points[:,2]*0+10  #sets the z height to 10
-        #raytracer and output storage 
-        self._physx_query_interface = omni.physx.get_physx_scene_query_interface()
-        self._debug_points: List[PointMarker] = list()
-
-        marker = PointMarker(f"/World/debug_height_sample", self._num_points, radius=0.2)
-        marker.set_world_poses(positions=self._points)
-        self._debug_points.append(marker)
+        # marker = PointMarker(f"/World/debug_height_sample", self._num_points, radius=0.2)
+        # marker.set_world_poses(positions=self._points)
+        # self._debug_points.append(marker)
 
     
     def rayTraceRandomPoints(self)->None:
@@ -63,7 +64,7 @@ class IsaacSimRunner(object):
         
         # change to sim running
         while simulation_app.is_running():
-            self.rayTraceRandomPoints()
+            #self.rayTraceRandomPoints()
             self._world.step(render=True)
         return
 
@@ -71,14 +72,20 @@ class IsaacSimRunner(object):
 #   basic program demonstrating how the scene is produced   #
 #-----------------------------------------------------------#
 
-def main():
-    """Runs the simulation via the IsaacSimRunner."""
+def main():    
+    # open/load pre-built stage
+    # get_context().open_stage(str(Path("save_readable.usda")))
+    # NOTE: This needs to happen before IsaacSimRunner()'s init
+    # NOTE 2: Name collisions are a problem in general in this file.
+    # This scene was saved with the same raytracing test that is initialized 
+    # during the testing so those prims have name collisions.
 
+
+    """Runs the simulation via the IsaacSimRunner."""
     isaac_sim_runner = IsaacSimRunner()
     simulation_app.update()
 
     # safe to set up here
-
     #------------#
     #   assets   #
     #------------#
@@ -87,12 +94,10 @@ def main():
     asset_manager = AssetManager()
 
     # get asset directories
-    assets_from_unknown_store = F"{os.getcwd()}/assets/assets_from_unknown_asset_store"
-    assets_ov_industry = [ F"{os.getcwd()}/assets/ov-industrial3dpack-01-100.1.2/{category}" for category in ["Piles", "Racks", "Pallets", "Railing", "Shelves", "Containers"]]
+    assets_from_unknown_store = F"{os.getcwd()}/assets"
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
-    # asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.4, applier=omniverse_utils.apply_default_ground_physics_material)
-    # asset_manager.register_assets_from_many_directories(assets_ov_industry, recurse=True, asset_scale=0.015, applier=omniverse_utils.apply_default_ground_physics_material)
+    asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=omniverse_utils.apply_default_ground_physics_material)
   
     #-------------#
     #   terrain   #
@@ -104,10 +109,15 @@ def main():
     #-----------------#
     #   environment   #
     #-----------------#
+
+    # create environment object
+    environment = ConstructionStageBuilder(xdim=100,ydim=100,terrain=terrain,asset_manager=asset_manager)
     
-    # create environment object and use it to modify the scene
-    environment = StageBuilder(xdim=100,ydim=100,terrain=terrain,asset_manager=asset_manager)
-    environment.build_stage(global_offset=[0,0,0],spawn_assets=False,asset_density=0.2)
+    # build stage
+    environment.build_stage(global_offset=[0,0,0],spawn_assets=True,asset_density=0.3)  
+
+    # save stage
+    #environment.save_stage(Path("save_readable.usda"))
 
     # everything after this line happens at until the simulation is closed
     isaac_sim_runner.run() # Process continues until closed by user or exception.
