@@ -1,6 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Tuple, Union, List, MutableSequence, Sequence, Set, Callable
+from typing import Tuple, Union, List, Sequence, Set, Callable
 
 from pxr import Gf, Vt
 from isaac_stage import omniverse_utils
@@ -57,7 +57,7 @@ class Terrain2D(ABC):
         """
         return set()
     
-    def create_terrain(self, xdim : int, ydim : int, world_translation : Union[MutableSequence[float],Sequence[float]]) -> str:
+    def create_terrain(self, xdim : int, ydim : int, world_translation : Sequence[float]) -> str:
         """
         Creates a triangle mesh of the terrain with dimensions xdim by ydim, centered at world_translation.
 
@@ -143,7 +143,7 @@ class Terrain2D(ABC):
 
         prim_path =  F"/terrain_mesh_{terrain_id}"
         
-        terrain_prim = omniverse_utils.trimesh_to_prim(prim_path, faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
+        terrain_prim = omniverse_utils.create_prim_trimesh(prim_path, faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
         omniverse_utils.translate_prim(prim_path, world_translation)
 
         # Apply Applier
