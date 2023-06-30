@@ -35,7 +35,7 @@ def get_stage() -> pxr.Usd.Stage:
         """
         return omni.usd.get_context().get_stage()
 
-def open_stage(input_file_path : Path, relative_pathing : bool):
+def open_stage(input_file_path : str):
     """
     Loads a .usd stage.
 
@@ -43,37 +43,31 @@ def open_stage(input_file_path : Path, relative_pathing : bool):
     NOTE: Not sure why--it looks like it could be a labeling collision with the physics context and other things like it.
 
     Args:
-        input_file_path (Path): Path of the stage to open.
+        input_file_path (str): Path of the stage to open.
             NOTE: Can be .usd, .usda, .usdc, (and maybe .usdz ?)
-        relative_pathing (bool): Whether or not to use a relative path.
 
     Example: 
-        open_stage(Path("../stages/example_stage.usda"),relative_pathing=True)    NOTE: cwd is '/home/*' for this example
+        open_stage("../stages/example_stage.usda")    NOTE: cwd is '/home/*' for this example
             opens --> "/home/stages/example_stage.usda"  
 
     """
-    if relative_pathing:
-        get_context().open_stage(str(Path(Path.cwd(),input_file_path).resolve()))
-    else:
-        get_context().open_stage(str(input_file_path.resolve()))
+    input_file_path = str(Path(input_file_path).resolve())
+    get_context().open_stage(input_file_path)
          
-def save_stage(output_file_path : Path, relative_pathing : bool):
+def save_stage(output_file_path : str):
     """
     Saves the current stage to a file.
 
     Args:
-        output_file_path (Path): Path relative to current working directory for where to save the stage.
+        output_file_path (str): Path relative to current working directory for where to save the stage.
             NOTE: Can be saved as .usd, .usda, .usdc, .usdz
-        relative_pathing (bool): Whether or not to use a relative path.
 
     Example: 
-        save_stage(Path("../stages/example_stage.usda"),relative_pathing=True)    NOTE: cwd is '/home/*' for this example
+            save_stage("../stages/example_stage.usda")    NOTE: cwd is '/home/*' for this example
             saves to --> "/home/stages/example_stage.usda"  
     """
-    if relative_pathing:
-        get_stage().Export(str(Path(Path.cwd(),output_file_path).resolve()))
-    else:
-        get_stage().Export(str(output_file_path.resolve()))
+    output_file_path = str(Path(output_file_path).resolve())
+    get_stage().Export(output_file_path)
 
 def is_prim_defined(path: str) -> bool:
     """

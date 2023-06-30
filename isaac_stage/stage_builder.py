@@ -20,17 +20,17 @@ class StageBuilder(ABC):
         """Implementation-specific method to construct the stage."""
         pass
     
-    def save_stage(self, output_file_path : Path, relative_pathing : bool):
+    def save_stage(self, output_file_path : str, relative_pathing : bool):
         """
         Saves the current stage to a file. TODO: This method is just a call to omniverse_utils, so not sure if it will stay here.
 
         Args:
-            output_file_path (Path): Path to save the stage at..
+            output_file_path (str): Path to save the stage at..
                 NOTE: Can be saved as .usd, .usda, .usdc, .usdz
             relative_pathing (bool): Whether or not to use relative pathing.
 
         Example: 
-            save_stage(Path("../stages/example_stage.usda"),relative_pathing=True)    NOTE: cwd is '/home/*' for this example
+            save_stage("../stages/example_stage.usda")    NOTE: cwd is '/home/*' for this example
             saves to --> "/home/stages/example_stage.usda"  
         """
         save_stage(output_file_path, relative_pathing)
