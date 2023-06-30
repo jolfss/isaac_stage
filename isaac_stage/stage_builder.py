@@ -5,7 +5,7 @@ from isaac_stage.terrain import Terrain2D
 from abc import ABC, abstractmethod
 from pathlib import Path
 from pxr import *
-from isaac_stage.omniverse_utils import save_stage, create_light_dome, create_sky_dynamic, DEFAULT_DYNAMIC_SKIES, create_sky_hdri, DEFAULT_HDRI_SKIES
+from isaac_stage.omniverse_utils import save_stage, create_light_dome
 
 
 class StageBuilder(ABC):
@@ -108,11 +108,11 @@ class ConstructionStageBuilder(StageBuilder):
 
         #TODO: Figure out whether dynamic/HDRI skies are supported in Isaac Gym
         #print("Picking random skybox..")
-        #create_sky_dynamic(DEFAULT_DYNAMIC_SKIES[np.random.choice(list(DEFAULT_DYNAMIC_SKIES.keys()))])  
+        # create_dynamic_sky(DEFAULT_DYNAMIC_SKIES[np.random.choice(list(DEFAULT_DYNAMIC_SKIES.keys()))])  
         # print("Picking random HDRI skybox..")
         # skybox_dict = DEFAULT_HDRI_SKIES[np.random.choice(["Clear","Cloudy","Storm","Evening","Night"])]
         # skybox_path = skybox_dict[np.random.choice(list(skybox_dict.keys()))]
-        # create_sky_hdri(skybox_path)
+        # create_hdri_sky(skybox_path)
 
         #NOTE: For now, light dome.
         print("Creating Sky Dome..")

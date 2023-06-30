@@ -192,8 +192,6 @@ def get_pose(prim_path):
 #   prim creation utils   #
 #-------------------------#
 
-### methods ###
-
 def create_prim_trimesh(path : str, 
                     faceVertexCounts : List[int], 
                     faceVertexIndices : np.ndarray, 
@@ -305,7 +303,7 @@ def create_light_dome(intensity : float) -> str:
 # Omniverse's default dynamic skyboxes.
 DEFAULT_DYNAMIC_SKIES= {sky_name : F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Dynamic/{sky_name}.usd" \
                                    for sky_name in ["Cirrus", "ClearSky", "CloudySky", "CumulusHeavy", "CumulusLight", "NightSky", "Overcast"]}
-def create_sky_dynamic(dynamic_sky_path : str):
+def create_dynamic_sky(dynamic_sky_path : str):
     """Creates a dynamic sky from one of the Omniverse defaults.
 
     Args:
@@ -348,7 +346,7 @@ __DEFAULT_HDRI_STUDIO_SKIES={sky_name : F"https://omniverse-content-production.s
 DEFAULT_HDRI_SKIES = { "Clear" : __DEFAULT_HDRI_CLEAR_SKIES,"Cloudy" : __DEFAULT_HDRI_CLOUDY_SKIES,"Evening" : __DEFAULT_HDRI_EVENING_SKIES,
                         "Indoor" : __DEFAULT_HDRI_INDOOR_SKIES,"Night" : __DEFAULT_HDRI_NIGHT_SKIES, "Storm" : __DEFAULT_HDRI_STORM_SKIES,
                         "Studio" : __DEFAULT_HDRI_STUDIO_SKIES,}
-def create_sky_hdri(hdri_sky_path : str):
+def create_hdri_sky(hdri_sky_path : str):
     """Creates a static HDR-imaged sky from one of the Omniverse defaults.
 
     Args:
