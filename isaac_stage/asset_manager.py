@@ -1,5 +1,4 @@
 # general python imports
-import os
 import numpy as np
 from pathlib import Path
 from typing import Callable, Sequence, Union, List
@@ -27,12 +26,20 @@ class Asset(object):
     def __init__(self, asset_file_path : Path, asset_scale : float, applier : Union[Callable[[str], None], None]):
         """Initializes the Asset with the given file path.
 
+        Note:
+            The asset's name becomes the last part of its file path without the suffix, i.e., the stem.
+            ~/.../assets/this_is_the_asset_name.usd*
+            
+        Requires:
+            All assets to be added to the scene have unique stems. 
+            Because the name is taken from the stem, dummy.usd and dummy.usdz would cause name collisions. 
+
         Args:
             asset_file_path (Path): The file path of the asset.
             asset_scale (float): The scale factor of the asset (in all directions equally).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) to the prim path.
         """
-        self.__file_path = asset_file_path
+        self.__file_path : Path = asset_file_path.resolve()
         self.__name = asset_file_path.stem
         self.__count = 0
         self.asset_scale = asset_scale
@@ -62,6 +69,9 @@ class Asset(object):
             rotation_order (int subscriptable @ 0,1,2)=(0,1,2): The order of rotations in x, y, and z axes, respectively.
             scale (float subscriptable @ 0,1,2)=(1,1,1): The scaling values in x, y, and z axes, respectively.
 
+        Requires:
+            No one else is spawning this asset or assets with the same name (in the parent_prim_path) without using this interface.
+        
         Returns:
             str: The path of the newly created prim.
         """
@@ -69,7 +79,7 @@ class Asset(object):
         asset_prim_path = parent_prim_path + self.__name + F"_{self.__count}"
         self.__count += 1
         asset_prim = define_prim(asset_prim_path,"Xform")
-        asset_prim.GetReferences().AddReference(os.path.join(self.__file_path))
+        asset_prim.GetReferences().AddReference(str(self.__file_path))
 
         omniverse_utils.transform_prim(asset_prim_path, translation, rotation, rotation_order, scale=(self.asset_scale * scale[0], self.asset_scale * scale[1], self.asset_scale * scale[2])) 
         # Soft TODO: Maybe use an xform wrapping the reference instead.
@@ -90,26 +100,28 @@ class AssetManager(object):
         register_assets_from_directory(self, asset_directory : str, recurse : bool, applier : str -> None | None) -> None: Registers the assets in the given directory.
         register_assets_from_many_directories(self, asset_directories : List[str], recurse : bool, applier : str -> None | None) -> None: Registers the assets in all the given directories.
         sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + asset.area)) -> Asset: Provides a sampled asset with probability proportional to the given weights softmaxed.
+    
+    Requires:
+        All registered assets have unique names. Per this version, dummy.usdz and dummy.usd cause a collision when registered together. 
     """
     def __init__(self):
         """Initializes an AssetManager."""
         self.registered_assets : np.ndarray = np.array([])
 
-    def register_asset(self, asset_path : str,  asset_scale : float, applier : Union[Callable[[str], None], None]) :
+    def register_asset(self, asset_path : Path,  asset_scale : float, applier : Union[Callable[[str], None], None]) :
         """Registers the asset at the asset_path with an optional physics material.
 
         Args:
-            asset_directory (str): The path of a usd asset to register.
+            asset_directory (str): The path of a .usd* asset to register.
             asset_scale (float): The scale factor applied to the asset registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
-        if os.path.isfile(asset_path):
-            maybe_asset_path = Path(asset_path)
-            if maybe_asset_path.suffix == ".usd":
-                self.registered_assets = np.append(self.registered_assets, Asset(maybe_asset_path, asset_scale=asset_scale, applier=applier))
+        if asset_path.is_file():
+            if ".usd" in asset_path.suffix:
+                self.registered_assets = np.append(self.registered_assets, Asset(asset_path, asset_scale=asset_scale, applier=applier))
 
     
-    def register_many_assets(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None]) :
+    def register_many_assets(self, asset_path_list : List[Path], asset_scale : float, applier : Union[Callable[[str], None], None]) :
         """Registers the listed assets from the list of paths with an optional physics material..
 
         Args:
@@ -122,7 +134,7 @@ class AssetManager(object):
             self.register_asset(asset_path=asset_path, asset_scale=asset_scale, applier=applier)
 
 
-    def register_assets_from_directory(self, asset_directory : str, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None]):
+    def register_assets_from_directory(self, asset_directory : Path, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None]):
         """Registers the assets in the given directory with an optional physics applier, and optionally recurses into subdirectories to find other assets.
 
         Args:
@@ -132,21 +144,20 @@ class AssetManager(object):
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
         assets_to_be_registered = []
-        for item in os.listdir(asset_directory):
-            full_path = Path(os.path.join(asset_directory, item))
+        for item in asset_directory.iterdir():
+            full_path = Path(asset_directory, item)
             #print(F"Including Assets from {full_path}")
-            if os.path.isfile(full_path):
-                maybe_asset_path = Path(full_path)
-                if maybe_asset_path.suffix == ".usd":
-                    assets_to_be_registered.append(Asset(maybe_asset_path, asset_scale=asset_scale, applier=applier))
-            elif os.path.isdir(full_path):
+            if full_path.is_file():
+                if ".usd" in full_path.suffix:
+                    assets_to_be_registered.append(Asset(full_path, asset_scale=asset_scale, applier=applier))
+            elif full_path.is_dir():
                 if recurse:
-                    self.register_assets_from_directory(str(full_path), recurse=recurse, asset_scale=asset_scale, applier=applier)
+                    self.register_assets_from_directory(full_path, recurse=recurse, asset_scale=asset_scale, applier=applier)
         
         self.registered_assets = np.append(self.registered_assets, assets_to_be_registered)
 
     
-    def register_assets_from_many_directories(self, asset_directories : List[str], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None]) :
+    def register_assets_from_many_directories(self, asset_directories : List[Path], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None]) :
         """Registers the assets in the given directories with an optional physics material, and optionally recurses to find those in the subdirectories of each.
 
         Args:
