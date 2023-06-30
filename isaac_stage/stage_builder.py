@@ -1,11 +1,12 @@
-from typing import Sequence, Union
+from typing import Sequence
 import numpy as np
 from isaac_stage.asset_manager import AssetManager, Asset
 from isaac_stage.terrain import Terrain2D
 from abc import ABC, abstractmethod
 from pathlib import Path
 from pxr import *
-from omniverse_utils import get_context, get_stage, save_stage
+from omniverse_utils import save_stage
+
 
 class StageBuilder(ABC):
     """
@@ -19,19 +20,20 @@ class StageBuilder(ABC):
         """Implementation-specific method to construct the stage."""
         pass
     
-    def save_stage(self, output_file_path : Path):
+    def save_stage(self, output_file_path : Path, relative_pathing : bool):
         """
-        Saves the current stage to a file.
+        Saves the current stage to a file. TODO: This method is just a call to omniverse_utils, so not sure if it will stay here.
 
         Args:
-            output_file_path (Path): Path relative to current working directory for where to save the stage.
-            NOTE: Can be saved as .usd, .usda, .usdc, .usdz
+            output_file_path (Path): Path to save the stage at..
+                NOTE: Can be saved as .usd, .usda, .usdc, .usdz
+            relative_pathing (bool): Whether or not to use relative pathing.
 
         Example: 
-            save_stage(Path("../stages/example_stage.usda"))    NOTE: cwd is '/home/*' for this example
+            save_stage(Path("../stages/example_stage.usda"),relative_pathing=True)    NOTE: cwd is '/home/*' for this example
             saves to --> "/home/stages/example_stage.usda"  
         """
-        save_stage(output_file_path)
+        save_stage(output_file_path, relative_pathing)
 
 
 class ConstructionStageBuilder(StageBuilder):
