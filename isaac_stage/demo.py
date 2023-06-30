@@ -74,7 +74,7 @@ class IsaacSimRunner(object):
 
 def main():    
     # open/load pre-built stage
-    # get_context().open_stage(str(Path("save_readable.usda")))
+    # get_context().open_stage(str(Path("PATH_TO_STAGE.usd*"),relative_pathing=True)
     # NOTE: This needs to happen before IsaacSimRunner()'s init
     # NOTE 2: Name collisions are a problem in general in this file.
     # This scene was saved with the same raytracing test that is initialized 
@@ -94,7 +94,7 @@ def main():
     asset_manager = AssetManager()
 
     # get asset directories
-    assets_from_unknown_store = F"{os.getcwd()}/assets"
+    assets_from_unknown_store = Path(F"{Path.cwd()}/assets")
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
     asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=omniverse_utils.apply_default_ground_physics_material)
