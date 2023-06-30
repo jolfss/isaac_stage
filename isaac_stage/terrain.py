@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, Sequence, Set, Callable
 
 from pxr import Gf, Vt
-from isaac_stage import omniverse_utils
+from isaac_stage import omniverse_utils, appliers, prims
 
 
 class Terrain2D(ABC):
@@ -143,8 +143,8 @@ class Terrain2D(ABC):
 
         prim_path =  F"/terrain_mesh_{terrain_id}"
         
-        terrain_prim = omniverse_utils.create_prim_trimesh(prim_path, faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
-        omniverse_utils.translate_prim(prim_path, world_translation)
+        terrain_prim = prims.create_trimesh(prim_path, faceVertexCounts, faceVertexIndices, normals, points, primvars_st)
+        prims.translate(prim_path, world_translation)
 
         # Apply Applier
         if self.applier:
@@ -168,7 +168,7 @@ class WaveletTerrain(Terrain2D):
 
     def __init__(self, 
                  terrain_unit : float = 0.5,
-                 applier = omniverse_utils.apply_default_ground_physics_material, 
+                 applier = appliers.apply_default_ground_physics_material, 
                  seed : Union[int, None] = None,
                  xdim : int = 100, 
                  ydim : int = 100, 

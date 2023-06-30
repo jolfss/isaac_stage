@@ -1,11 +1,17 @@
+# general python imports
 from typing import Sequence
 import numpy as np
-from isaac_stage.asset_manager import AssetManager, Asset
-from isaac_stage.terrain import Terrain2D
 from abc import ABC, abstractmethod
 from pathlib import Path
+
+# pxr
 from pxr import *
-from isaac_stage.omniverse_utils import save_stage, create_light_dome
+
+# isaac stage
+from isaac_stage.omniverse_utils import save_stage
+from isaac_stage.prims import create_light_dome
+from isaac_stage.assets import AssetManager, Asset
+from isaac_stage.terrain import Terrain2D
 
 
 class StageBuilder(ABC):

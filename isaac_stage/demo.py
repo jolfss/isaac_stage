@@ -6,10 +6,10 @@ import omni
 
 from omni.isaac.core.simulation_context import SimulationContext
 
-from isaac_stage.asset_manager import *
+from assets import *
 from isaac_stage.terrain import *
-from isaac_stage.stage_builder import StageBuilder, ConstructionStageBuilder
-from omniverse_utils import get_context
+from isaac_stage.stage_builder import ConstructionStageBuilder
+from isaac_stage.appliers import apply_default_ground_physics_material
 
 from omni.isaac.orbit.markers import PointMarker
 
@@ -97,7 +97,7 @@ def main():
     assets_from_unknown_store = Path(F"{Path.cwd()}/assets")
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
-    asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=omniverse_utils.apply_default_ground_physics_material)
+    asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=apply_default_ground_physics_material)
   
     #-------------#
     #   terrain   #
