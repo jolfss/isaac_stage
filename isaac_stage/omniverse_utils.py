@@ -318,7 +318,7 @@ def create_sky_dynamic(dynamic_sky_path : str):
 
     Options: Cirrus, ClearSky, CloudySky, CumulusHeavy, CumulusLight, NightSky, Overcast"""
     omni.kit.commands.execute('CreateDynamicSkyCommand',
-        sky_url=F"https://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Skies/2022_1/Skies/Dynamic/{default_dynamic_sky_path}.usd",
+        sky_url=dynamic_sky_path,
         sky_path='/Environment/sky')
     
 # Omniverse's default HDR-imaged, static skyboxes.
