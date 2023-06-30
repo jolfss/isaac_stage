@@ -82,6 +82,7 @@ def transform(prim_path : str,
             rotation_order (int subscriptable @ 0,1,2): The order in which the rotations are applied to the primitive.
             scale (Union[List[float], Tuple[float, float, float], np.ndarray]): The scale to be appliedto the primitive.
         """
+        #print(F"Applying transformation to {prim_path}, translation={translation} rotation={rotation} scale={scale}")
         gf_translation = Gf.Vec3d(float(translation[0]), float(translation[1]), float(translation[2]))
         gf_rotation = Gf.Vec3d(float(rotation[0]), float(rotation[1]), float(rotation[2]))
         gf_rotation_order = Gf.Vec3i(rotation_order[0], rotation_order[1], rotation_order[2])

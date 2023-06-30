@@ -40,7 +40,7 @@ class Asset(object):
             applier (str -> None | None): A function that applies a physics material (or whatever you want) to the prim path.
         """
         self.__file_path : Path = Path(asset_file_path).resolve()
-        self.__name = asset_file_path.stem
+        self.__name = self.__file_path.stem
         self.__count = 0
         self.asset_scale = asset_scale
         self.applier = applier
@@ -49,7 +49,7 @@ class Asset(object):
             temp_prim = self.insert() # TODO: Current area check requires a prim be created/destroyed, ideally this can be done without modifying the scene.
             bounding_box = omniverse_utils.get_context().compute_path_world_bounding_box(temp_prim)           
             area = np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
-            omniverse_utils.delete_prim(temp_prim)
+            prims.delete(temp_prim)
             return area
 
         self.area = calculate_area()
@@ -119,7 +119,7 @@ class AssetManager(object):
         asset_path = Path(asset_path).resolve()
         if asset_path.is_file():
             if ".usd" in asset_path.suffix:
-                self.registered_assets = np.append(self.registered_assets, Asset(asset_path, asset_scale=asset_scale, applier=applier))
+                self.registered_assets = np.append(self.registered_assets, Asset(str(asset_path), asset_scale=asset_scale, applier=applier))
 
     
     def register_many_assets(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None]) :
@@ -153,7 +153,7 @@ class AssetManager(object):
             #print(F"Including Assets from {full_path}")
             if full_path.is_file():
                 if ".usd" in full_path.suffix:
-                    assets_to_be_registered.append(Asset(full_path, asset_scale=asset_scale, applier=applier))
+                    assets_to_be_registered.append(Asset(str(full_path), asset_scale=asset_scale, applier=applier))
             elif full_path.is_dir():
                 if recurse:
                     self.register_assets_from_directory(full_path, recurse=recurse, asset_scale=asset_scale, applier=applier)

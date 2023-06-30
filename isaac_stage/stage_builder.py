@@ -90,7 +90,7 @@ class ConstructionStageBuilder(StageBuilder):
         
         total_asset_area = 0
         while total_asset_area <= self.xdim * self.ydim * density:
-            next_asset = self.asset_manager.sample_asset(weight_by_bounding_box_area)
+            next_asset : Asset = self.asset_manager.sample_asset(weight_by_bounding_box_area)
             radius, area = np.sqrt(next_asset.area), next_asset.area
             x, y = (np.random.random()-0.5)*self.xdim, (np.random.random()-0.5)*self.ydim
             total_asset_area += area
