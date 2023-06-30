@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable, Sequence, Union, List
 
 # omniverse imports
-from isaac_stage import omniverse_utils
+from isaac_stage import omniverse_utils, prims
 from omni.isaac.core.utils.prims import define_prim
 
 
@@ -81,7 +81,7 @@ class Asset(object):
         asset_prim = define_prim(asset_prim_path,"Xform")
         asset_prim.GetReferences().AddReference(str(self.__file_path))
 
-        omniverse_utils.transform_prim(asset_prim_path, translation, rotation, rotation_order, scale=(self.asset_scale * scale[0], self.asset_scale * scale[1], self.asset_scale * scale[2])) 
+        prims.transform(asset_prim_path, translation, rotation, rotation_order, scale=(self.asset_scale * scale[0], self.asset_scale * scale[1], self.asset_scale * scale[2])) 
         # Soft TODO: Maybe use an xform wrapping the reference instead.
 
         if self.applier:
