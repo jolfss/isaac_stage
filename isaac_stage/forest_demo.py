@@ -90,7 +90,7 @@ def main():
 
     # define terrain function
     terrain = ForestedRoadsTerrain(terrain_unit=0.5, xdim=dim, ydim=dim, amp=0.15, spawn_radius=5.5,road_min_width=0.15, road_max_width=1.5, road_num=13, border_threshold=10
-                                   ,applier=apply_appliers([apply_default_ground_physics_material, lambda prim_path : apply_color_to_prim(prim_path, color=(49/255,36/255,25/255))]))
+                                   ,applier=apply_appliers([apply_default_ground_physics_material, apply_color_to_prim(color=(49/255,36/255,25/255))]))
 
     #-----------------#
     #   environment   #
