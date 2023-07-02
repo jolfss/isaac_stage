@@ -94,7 +94,7 @@ def main():
     asset_manager = AssetManager()
 
     # get asset directories
-    assets_from_unknown_store = Path(F"{Path.cwd()}/assets")
+    assets_from_unknown_store = Path(F"{Path.cwd()}/assets/Objects")
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
     asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=apply_default_ground_physics_material)

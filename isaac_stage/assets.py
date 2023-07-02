@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Callable, Sequence, Union, List
 
 # omniverse imports
-from isaac_stage import omniverse_utils, prims
+from isaac_stage import prims
 from omni.isaac.core.utils.prims import define_prim
+from isaac_stage import utils
 
 
 class Asset(object):
@@ -47,12 +48,16 @@ class Asset(object):
 
         def calculate_area():
             temp_prim = self.insert() # TODO: Current area check requires a prim be created/destroyed, ideally this can be done without modifying the scene.
-            bounding_box = omniverse_utils.get_context().compute_path_world_bounding_box(temp_prim)           
+            bounding_box = utils.get_context().compute_path_world_bounding_box(temp_prim)           
             area = np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
             prims.delete(temp_prim)
+            print(F"Registered Asset {asset_file_path}, Area={area}m^2")
             return area
 
         self.area = calculate_area()
+
+    def get_name(self):
+        return self.__name
 
     def insert(self, 
                parent_prim_path : Union[str, None]=None, 
@@ -116,7 +121,7 @@ class AssetManager(object):
             asset_scale (float): The scale factor applied to the asset registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
-        asset_path = Path(asset_path).resolve()
+        asset_path : Path = Path(asset_path).resolve()
         if asset_path.is_file():
             if ".usd" in asset_path.suffix:
                 self.registered_assets = np.append(self.registered_assets, Asset(str(asset_path), asset_scale=asset_scale, applier=applier))
@@ -175,7 +180,7 @@ class AssetManager(object):
             self.register_assets_from_directory(asset_directory, recurse=recurse, asset_scale=asset_scale, applier=applier)
 
 
-    def sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + asset.area)) -> Asset :
+    def sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + np.sqrt(asset.area))) -> Asset :
         """Provides an asset sampled with probability proportionate to the given weights softmaxxed.
 
         Args:

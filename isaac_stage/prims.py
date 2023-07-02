@@ -11,7 +11,7 @@ import omni
 import omni.isaac.core
 
 # isaac stage
-from isaac_stage import omniverse_utils
+from isaac_stage import utils
 
 #-------------------------#
 #   prim handling utils   #
@@ -24,7 +24,7 @@ def is_defined(path: str) -> bool:
     Parameters:
     path (str): The path to the prim.
     """
-    prim = omniverse_utils.get_stage().GetPrimAtPath(path)
+    prim = utils.get_stage().GetPrimAtPath(path)
     return prim.IsValid()
 
 # NOTE: May be deprecated/repurposed because transform is more general and *meant* for a single translation.
@@ -104,7 +104,7 @@ def get_pose(prim_path):
     NOTE: This is a likely suspect if anything seems weird.
     returns: [x, y, z, qx, qy, qz, qw] of prim at prim_path
     """
-    stage = omniverse_utils.get_stage()
+    stage = utils.get_stage()
     if not stage:
         return
 
@@ -164,7 +164,7 @@ def create_trimesh(path : str,
         """
         omni.kit.commands.execute('CreateMeshPrimWithDefaultXform', prim_type='Cube')
         omni.kit.commands.execute("MovePrim", path_from='/Cube', path_to=path)
-        cube_prim = omniverse_utils.get_stage().GetPrimAtPath(path)
+        cube_prim = utils.get_stage().GetPrimAtPath(path)
 
         cube_prim.GetAttribute('faceVertexCounts').Set(faceVertexCounts)
         cube_prim.GetAttribute('faceVertexIndices').Set(faceVertexIndices)
@@ -194,7 +194,7 @@ def create_triangle(vertices : Sequence[Sequence[float]], parent_prim_path : str
           __global_make_triangle_count += 1
 
     prim_path = F"{parent_prim_path}/Triangle_{__global_make_triangle_count}"
-    mesh = pxr.UsdGeom.Mesh.Define(omniverse_utils.get_stage(), prim_path)
+    mesh = pxr.UsdGeom.Mesh.Define(utils.get_stage(), prim_path)
 
     # Set up vertex data
     mesh.CreatePointsAttr([Gf.Vec3f(float(vertices[0][0]), float(vertices[0][1]), float(vertices[0][2])), 
@@ -230,7 +230,7 @@ def create_sphere(position : Sequence[float], radius : float, parent_prim_path :
     prim_path = F"{parent_prim_path}/Sphere_{__global_make_sphere_count}"
 
     # Define a Sphere
-    sphere = pxr.UsdGeom.Sphere.Define(omniverse_utils.get_stage(), prim_path)
+    sphere = pxr.UsdGeom.Sphere.Define(utils.get_stage(), prim_path)
 
     # Set the radius
     sphere.CreateRadiusAttr(radius)

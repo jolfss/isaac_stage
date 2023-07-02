@@ -3,7 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, Sequence, Set, Callable
 
 from pxr import Gf, Vt
-from isaac_stage import omniverse_utils, appliers, prims
+from isaac_stage import appliers, prims
+
+from isaac_stage import utils
 
 
 class Terrain2D(ABC):
@@ -32,15 +34,15 @@ class Terrain2D(ABC):
         self.applier = applier
 
     @abstractmethod
-    def terrain_fn(self, x : float, y : float) -> float :
-        """The height of the terrain at (x,y), optionally sensitive to the randomize method for parametrized environments."""
-        pass
-    
-    @abstractmethod
     def randomize(self, seed) -> None :
         """Set or randomize the random seed and do whatever is necessary (modify internal state) to randomize next terrain_fn call."""
         pass
 
+    @abstractmethod
+    def terrain_fn(self, x : float, y : float) -> float :
+        """The height of the terrain at (x,y), optionally sensitive to the randomize method for parametrized environments."""
+        pass
+    
     @abstractmethod
     def get_region_tags(self, x, y) -> Set[str]:
         """
@@ -83,7 +85,7 @@ class Terrain2D(ABC):
             num_cols = terrain.shape[1]
 
             for x in range(num_rows):
-                # print(F"Meshing Terrain {x * len(y_axis)}/{len(x_axis) * len(y_axis)}")
+                print(F"Meshing Terrain {np.floor(100* x * len(y_axis)/(len(x_axis) * len(y_axis)))}%")
                 for y in range(num_cols):
                     terrain[x,y] = self.terrain_fn(x_axis[x],y_axis[y])
 
@@ -138,7 +140,7 @@ class Terrain2D(ABC):
         primvars_st = [(0,0)] * triangles.size
         
         terrain_id = 0 # Get unique name for the terrain.
-        while omniverse_utils.get_stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
+        while utils.get_stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
             terrain_id += 1
 
         prim_path =  F"/terrain_mesh_{terrain_id}"
@@ -210,6 +212,20 @@ class WaveletTerrain(Terrain2D):
         # initialize randomizable parameters 
         self.randomize(seed)
 
+    def randomize(self, seed : Union[int, None] = None):
+        """
+        Randomizes the wavelet frequencies and placement of roughing and smoothing spots/nodes.
+
+        Args:
+            seed (int | None): The seed for randomization. If None, a random seed is chosen.
+        """
+        rand = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
+
+        self.wavelet_frequencies =  (np.log(1 + rand.random(self.num_rough)**8) / np.log(2)) * (self.high - self.low) + self.low
+        self.wave_signs =           np.sign(rand.random(self.num_rough)-0.5)
+        self.rough_spots =          (2*rand.random((self.num_rough,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
+        self.smooth_spots =         (2*rand.random((self.num_smooth,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
+
     def terrain_fn(self, x, y):
         """
         Computes the height of the terrain at the given (x, y) coordinates.
@@ -241,20 +257,6 @@ class WaveletTerrain(Terrain2D):
          
         return self.amp * smoothen(x,y) * roughen(x,y) * protect_center(x,y)
 
-    def randomize(self, seed : Union[int, None] = None):
-        """
-        Randomizes the wavelet frequencies and placement of roughing and smoothing spots/nodes.
-
-        Args:
-            seed (int | None): The seed for randomization. If None, a random seed is chosen.
-        """
-        rand = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
-
-        self.wavelet_frequencies =  (np.log(1 + rand.random(self.num_rough)**8) / np.log(2)) * (self.high - self.low) + self.low
-        self.wave_signs =           np.sign(rand.random(self.num_rough)-0.5)
-        self.rough_spots =          (2*rand.random((self.num_rough,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
-        self.smooth_spots =         (2*rand.random((self.num_smooth,2)) - 1) @ np.array([[self.xdim/2,0],[0,self.ydim/2]])
-
     def get_region_tags(self, x, y) -> Set[str]:
         """
         A set of implementation-specific tags associated with the position (x,y) on the terrain.
@@ -272,3 +274,107 @@ class WaveletTerrain(Terrain2D):
             tags.add("spawn_assets")
 
         return tags
+
+class ForestedRoadsTerrain(Terrain2D):
+    """Creates a forest with linear walkways of varying widths that cut about.
+
+    Tags:
+        is_road: If the area is part of a road.
+        is_spawn: If the area is part of the spawn location.
+        """
+    def __init__(self, 
+                 terrain_unit : float, 
+                 applier : Union[Callable[[str],None],None],
+                 amp : float = 1.0,
+                 xdim : int = 100,
+                 ydim : int =100,
+                 road_num : int = 6,
+                 road_min_width : float = 2,
+                 road_max_width : float = 5,
+                 spawn_radius : float = 3,
+                 border_threshold : float = 2.5
+                 ):
+        
+        super().__init__(terrain_unit, applier)
+
+        # generation parameters
+        self.xdim : int = xdim
+        self.ydim : int = ydim
+        self.amp : float = amp
+        self.road_num : int = road_num
+        self.road_min_width : float = road_min_width
+        self.road_max_width : float = road_max_width
+        self.spawn_radius : float = spawn_radius
+        self.border_threshold :float = border_threshold
+
+        # randoms (initialized in randomize())
+        self.road_widths : Sequence[float] # float \in [road_min_width, road_max_width) list
+        self.road_offsets : Sequence[float] # float \in [0,1) list
+        self.random_thetas : Sequence[float] # float \in [0,2pi) list
+        self.roads : Sequence[Sequence[float]] # float^2 list (float list list)
+
+        self.randomize()
+
+    def randomize(self, seed : Union[int, None] = None):
+        """
+        Randomizes the wavelet frequencies and placement of roughing and smoothing spots/nodes.
+
+        Args:
+            seed (int | None): The seed for randomization. If None, a random seed is chosen.
+        """
+        rand = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
+
+        self.random_thetas = 2*np.pi*rand.random(self.road_num)
+        self.roads = [[np.cos(self.random_thetas[n]),
+                       np.sin(self.random_thetas[n])] for n in range(self.road_num)]
+        self.road_offsets = 0.35 * rand.random(self.road_num) * np.linalg.norm([self.xdim/2 * np.cos(self.random_thetas), self.ydim/2 * np.sin(self.random_thetas)])
+        self.road_widths = rand.random(self.road_num) * (self.road_max_width - self.road_min_width) + self.road_min_width
+
+        # Guarantee a path through the origin.
+        self.road_offsets[0] = 0
+        self.road_widths[0] = self.road_max_width
+
+    # Functions the aid in tagging and making terrain.
+    def nearest_road(self, x,y):
+        return np.argmin([np.abs(np.dot(self.roads,[x,y])[n] + self.road_offsets[n]) - self.road_widths[n] for n in range(self.road_num)])
+
+    def road(self, x, y):
+        nearest_road_id = self.nearest_road(x,y)
+        return np.abs(np.dot(self.roads,[x,y])[nearest_road_id] + self.road_offsets[nearest_road_id])
+    
+    def bowl(self, x, y):
+        return 3*((x**6)/((self.xdim/2))**6) + 3*(((y**6)/((self.ydim/2)**6)))
+    
+    def is_border(self, x, y) -> bool:
+        return self.xdim/2 - (np.abs(x) + self.border_threshold) < 0 or self.ydim/2 - (np.abs(y) + self.border_threshold) < 0
+
+    def is_road(self, x:float, y:float) -> bool:
+        nearest_road_id = self.nearest_road(x,y)
+        return np.abs(np.dot(self.roads,[x,y])[nearest_road_id] + self.road_offsets[nearest_road_id]) < self.road_widths[nearest_road_id]
+
+    def is_spawn(self, x, y):
+        return np.linalg.norm([x,y]) < self.spawn_radius
+    
+    def terrain_fn(self, x, y) -> float:
+        return self.bowl(x,y) if (self.is_road(x,y) or self.is_spawn(x,y)) and not self.is_border(x,y) else self.amp * ( 1 + self.bowl(x,y))
+    
+    def get_region_tags(self, x, y) -> Set[str]:
+        """
+        A set of implementation-specific tags associated with the position (x,y) on the terrain.
+
+        Possible Tag Values:
+            - is_road: Tagged if the point is a road.
+            - is_spawn: Tagged if the point is inside the spawn area.
+        """
+        tags = set()
+
+        if self.is_road(x,y) and not self.is_border(x,y):
+            tags.add("is_road")
+
+        if self.is_spawn(x,y):
+            tags.add("is_spawn")
+
+        return tags
+        
+
+        
