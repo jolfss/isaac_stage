@@ -155,7 +155,7 @@ class Terrain(ABC):
 
         return terrain_prim
     
-    def __failed_create_terrain():
+    def __failed_create_terrain(self):
         # TODO: If dynamic terrain is needed at some point, using @torch.jit.script to calculate the heights might be worthwhile.
         # NOTE: For now, a terrain_fn of numpy/torch ufuncs should work.
         def create_terrain(self, xdim : int, ydim : int, world_translation : Sequence[float]) -> str:
@@ -391,7 +391,7 @@ class RoadsTerrain(Terrain):
         self.random_thetas = 2*np.pi*rand.random(self.road_num)
         self.roads = [[np.cos(self.random_thetas[n]),
                        np.sin(self.random_thetas[n])] for n in range(self.road_num)]
-        self.road_offsets = 0.35 * rand.random(self.road_num) * np.linalg.norm([self.xdim/2 * np.cos(self.random_thetas), self.ydim/2 * np.sin(self.random_thetas)])
+        self.road_offsets = 0.666 *rand.random(self.road_num) * np.linalg.norm([self.xdim/2 * np.cos(self.random_thetas), self.ydim/2 * np.sin(self.random_thetas)])
         self.road_widths = rand.random(self.road_num) * (self.road_max_width - self.road_min_width) + self.road_min_width
 
         # Guarantee a path through the origin.

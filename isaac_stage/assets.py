@@ -54,7 +54,7 @@ class Asset(object):
             bounding_box = utils.get_context().compute_path_world_bounding_box(temp_prim)           
             area = self.area_correction_factor * np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
             prims.delete(temp_prim)
-            print(F"Registered Asset {asset_file_path}, Area={area}m^2")
+            print(F"\t└─> {self.__name}, area={area}m^2")
             return area
 
         self.area = calculate_area()
@@ -144,14 +144,14 @@ class AssetManager(object):
         """Registers the asset at the asset_path with an optional physics material.
 
         Overload Summary:
-            | asset input implementations | recurse | asset_scale | applier            | area_correction_factor |
-            |---------------------------------------------------------------------------------------------------|
-            | asset : Asset               | None    | None        | None               | None                   |
-            | asset_list : Asset list     | None    | None        | None               | None                   |
-            | asset_path : str            | None    | None        | str -> None | None | float = 1.0            |
-            | asset_path_list : str list  | None    | None        | str -> None | None | float = 1.0            |
-            | asset_directory : str       | bool    | None        | str -> None | None | float = 1.0            |
-            | asset_dir_list : str list   | bool    | None        | str -> None | None | float = 1.0            |
+            | asset input implementations | recurse | asset_scale | applier            | area_factor    |
+            |-------------------------------------------------------------------------------------------|
+            | asset : Asset               | None    | None        | None               | None           |
+            | asset_list : Asset list     | None    | None        | None               | None           |
+            | asset_path : str            | None    | None        | str -> None | None | float = 1.0    |
+            | asset_path_list : str list  | None    | None        | str -> None | None | float = 1.0    |
+            | asset_directory : str       | bool    | None        | str -> None | None | float = 1.0    |
+            | asset_dir_list :  str list  | bool    | None        | str -> None | None | float = 1.0    |
 
         Args:
             input (Asset | Asset list | str | str list)
@@ -160,22 +160,25 @@ class AssetManager(object):
             asset_scale (float): The scale factor applied to the asset registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
+        print(F"{asset} asset")
         self.register_assets = np.append(self.registered_assets, asset)
 
     @register.add
     def register(self, asset_list : List[Asset]) :
+        print(F"{asset_list} (asset list)")
         for asset in asset_list:
             self.registered_assets = np.append(self.registered_assets, asset)
 
     @register.add
-    def register(self, asset_path : str,  asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0) :
+    def register(self, asset_path : str,  asset_scale : float, applier : Union[Callable[[str], None], None], area_factor : float=1.0) :
+        print(F"{asset_path} (asset path)")
         asset_path : Path = Path(asset_path).resolve()
         if asset_path.is_file():
             if ".usd" in asset_path.suffix:
-                self.registered_assets = np.append(self.registered_assets, Asset(str(asset_path), asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor))
+                self.registered_assets = np.append(self.registered_assets, Asset(str(asset_path), asset_scale=asset_scale, applier=applier, area_factor=area_factor))
 
     @register.add
-    def register(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0) :
+    def register(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None], area_factor : float=1.0) :
         """Registers the listed assets from the list of paths with an optional physics material..
 
         Args:
@@ -184,12 +187,13 @@ class AssetManager(object):
             asset_scale (float): The scale factor applied to the assets registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
+        print(F"{asset_path_list} (asset path list)")
         for asset_path in asset_path_list:
             asset_path = str(Path(asset_path).resolve())
-            self.register(asset_path=asset_path, asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor)
+            self.register(asset_path=asset_path, asset_scale=asset_scale, applier=applier, area_factor=area_factor)
 
     @register.add
-    def register(self, asset_directory : str, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0):
+    def register(self, asset_directory : str, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_factor : float=1.0):
         """Registers the assets in the given directory with an optional physics applier, and optionally recurses into subdirectories to find other assets.
 
         Args:
@@ -198,23 +202,23 @@ class AssetManager(object):
             asset_scale (float): The scale factor applied to the assets registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
+        print(F"{asset_directory} (asset directory)")
         asset_directory = Path(asset_directory).resolve()
-
         assets_to_be_registered = []
         for item in asset_directory.iterdir():
             full_path = Path(asset_directory, item)
-            #print(F"Including Assets from {full_path}")
+            print(F"\t│ Scanning Asset: {full_path}")
             if full_path.is_file():
                 if ".usd" in full_path.suffix:
                     assets_to_be_registered.append(Asset(str(full_path), asset_scale=asset_scale, applier=applier))
             elif full_path.is_dir():
                 if recurse:
-                    self.register(full_path, recurse=recurse, asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor)
+                    self.register(full_path, recurse=recurse, asset_scale=asset_scale, applier=applier, area_factor=area_factor)
         
         self.registered_assets = np.append(self.registered_assets, assets_to_be_registered)
 
     @register.add
-    def register(self, asset_directory_list : List[str], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0) :
+    def register(self, asset_directory_list : List[str], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_factor : float=1.0) :
         """Registers the assets in the given directories with an optional physics material, and optionally recurses to find those in the subdirectories of each.
 
         Args:
@@ -223,6 +227,7 @@ class AssetManager(object):
             asset_scale (float) = 1.0: The scale factor applied to the assets registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
+        print(F"{asset_directory_list} (asset directory list)")
         for asset_directory in asset_directory_list:
             asset_directory = str(Path(asset_directory).resolve())
-            self.register(asset_directory, recurse=recurse, asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor)
+            self.register(asset_directory, recurse=recurse, asset_scale=asset_scale, applier=applier, area_factor=area_factor)

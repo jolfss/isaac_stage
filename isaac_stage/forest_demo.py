@@ -11,7 +11,7 @@ from isaac_stage.assets import AssetManager
 import isaac_stage.prims
 from isaac_stage.terrain import *
 from isaac_stage.stage_builder import ConstructionStageBuilder, ForestStageBuilder
-from isaac_stage.appliers import apply_appliers, apply_color_to_prim, apply_default_ground_physics_material
+from isaac_stage.appliers import apply_appliers, apply_color_to_prim, apply_default_ground_physics_material, apply_default_dirt_texture
 
 from omni.isaac.orbit.markers import PointMarker
 
@@ -89,7 +89,7 @@ def main():
 
     # define terrain function
     terrain = RoadsTerrain(terrain_unit=0.5, xdim=dim, ydim=dim, amp=0.2, spawn_radius=5.5,road_min_width=0.35, road_max_width=1.4, road_num=9, border_threshold=15.0
-                                   ,applier=apply_appliers([apply_default_ground_physics_material, apply_color_to_prim(color=(22/255,20/255,14/255))]))
+                                   ,applier=apply_appliers([apply_default_ground_physics_material, apply_default_dirt_texture]))
 
     #-----------------#
     #   environment   #

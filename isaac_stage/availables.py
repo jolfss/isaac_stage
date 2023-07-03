@@ -48,6 +48,6 @@ class Materials:
 	mtl_name='Dirt',
 	mtl_path='/World/Looks/Dirt')
 
-omni.kit.commands.execute('BindMaterialCommand',
-	prim_path='/World/Sphere',
-	material_path='/World/Looks/Dirt')
+    omni.kit.commands.execute('BindMaterialCommand',
+        prim_path='/World/Sphere',
+        material_path='/World/Looks/Dirt')

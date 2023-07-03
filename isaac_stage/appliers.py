@@ -1,9 +1,10 @@
 # general python imports
+from pathlib import Path
 from typing import List, Callable, Tuple
 
 # pxr
 import pxr
-from pxr import Gf
+from pxr import Gf, Sdf, Usd
 
 # omniverse imports
 import omni
@@ -64,6 +65,25 @@ def apply_default_ground_physics_material(prim_path : str) -> Callable[[str],Non
     
     GeometryPrim(prim_path, collision=True).apply_physics_material(default_ground_material)
 
+def apply_default_dirt_texture(prim_path : str):
+    # TODO: Make this work without saving a hard-coded material.
+    omni.kit.commands.execute('CreateMdlMaterialPrimCommand',
+        mtl_url='http://omniverse-content-production.s3-us-west-2.amazonaws.com/Materials/Base/Natural/Dirt.mdl',
+        mtl_name='Dirt',
+        mtl_path='/World/Looks/Dirt')
+
+    omni.kit.commands.execute('ChangeProperty',
+        prop_path=Sdf.Path('/World/Looks/Dirt/Shader.inputs:project_uvw'),
+        value=True,
+        prev=None,
+        target_layer=utils.get_stage().GetRootLayer(),
+        usd_context_name=utils.get_context())
+
+    omni.kit.commands.execute('BindMaterialCommand',
+        prim_path=prim_path,
+        material_path='/World/Looks/Dirt')
+
+
 def __apply_default_static_collider(prim_path:str):
     """
     WARNING:
@@ -88,3 +108,5 @@ def __apply_default_static_collider(prim_path:str):
     omni.kit.commands.execute('SetStaticCollider',
         path=pxr.Sdf.Path(prim_path),
         approximationShape='none') 
+
+
