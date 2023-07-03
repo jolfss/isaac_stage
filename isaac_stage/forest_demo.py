@@ -1,5 +1,5 @@
 from omni.isaac.kit import SimulationApp
-simulation_app = SimulationApp({"headless": True})
+simulation_app = SimulationApp({"headless": False})
 
 from pathlib import Path
 import omni    
@@ -65,23 +65,22 @@ def main():
     simulation_app.update()
 
     # safe to set up here
+
     #------------#
-    #   assets   #
+    #   assets   # 
     #------------#
 
-    # create asset manager
     asset_manager = AssetManager()
 
-    # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move.
-    asset_manager.register_asset("./assets/Forest/pine.usd", asset_scale=0.02, applier=apply_default_ground_physics_material)
-    asset_manager.register_asset("./assets/Forest/bush.usd", asset_scale=0.01, applier=apply_default_ground_physics_material)
-    asset_manager.register_asset("./assets/Forest/thyme_bush.usd", asset_scale=1.3, applier=apply_default_ground_physics_material)
-    asset_manager.register_asset("./assets/Forest/square_rock.usd", asset_scale=0.175, applier=apply_default_ground_physics_material)
-    asset_manager.register_asset("./assets/Forest/large_dirt_pile.usd", asset_scale=0.075, applier=apply_default_ground_physics_material)
-    asset_manager.register_asset("./assets/Forest/oak_tree_variation.usd", asset_scale=0.02, applier=apply_default_ground_physics_material)
-    asset_manager.register_asset("./assets/Forest/moss_rock_photoscan.usd", asset_scale=0.015, applier=apply_default_ground_physics_material)
-
-
+    asset_manager.register("../assets/Forest/CL08_Picea_Engelmannii_Glauca.usdc", asset_scale=0.0375, applier=apply_default_ground_physics_material, area_correction_factor=0.4)
+    asset_manager.register("../assets/Forest/JA19_Tsuga_Diversifolia_Japanese_Hemlock.usdc", asset_scale=0.048, applier=apply_default_ground_physics_material, area_correction_factor=0.4)
+    asset_manager.register("../assets/Forest/bush.usdc", asset_scale=0.025, applier=None)
+    asset_manager.register("../assets/Forest/bush_3d.usdc", asset_scale=2.5, applier=None)
+    asset_manager.register("../assets/Forest/Bush_lowpoly.usdc",asset_scale=0.12, applier=None)
+    asset_manager.register("../assets/Forest/Pine_wood_stone_1.usdc", asset_scale=0.8, applier=apply_default_ground_physics_material)
+    asset_manager.register("../assets/Forest/Pine_wood_stone_2.usdc", asset_scale=2.2, applier=apply_default_ground_physics_material)
+    asset_manager.register("../assets/Forest/Pine_wood_stone_4.usdc", asset_scale=3.5, applier=apply_default_ground_physics_material)
+    
     #-------------#
     #   terrain   #
     #-------------#
@@ -89,8 +88,8 @@ def main():
     dim = 100 # both terrain and environment
 
     # define terrain function
-    terrain = ForestedRoadsTerrain(terrain_unit=0.5, xdim=dim, ydim=dim, amp=0.15, spawn_radius=5.5,road_min_width=0.15, road_max_width=1.5, road_num=13, border_threshold=10
-                                   ,applier=apply_appliers([apply_default_ground_physics_material, apply_color_to_prim(color=(49/255,36/255,25/255))]))
+    terrain = RoadsTerrain(terrain_unit=0.5, xdim=dim, ydim=dim, amp=0.2, spawn_radius=5.5,road_min_width=0.35, road_max_width=1.4, road_num=9, border_threshold=15.0
+                                   ,applier=apply_appliers([apply_default_ground_physics_material, apply_color_to_prim(color=(22/255,20/255,14/255))]))
 
     #-----------------#
     #   environment   #
@@ -102,13 +101,12 @@ def main():
     # build stage
     environment.build_stage(global_offset=[0,0,0],spawn_assets=True,asset_density=5)  
 
+    isaac_sim_runner.run()
+
     # save stage
-    environment.save_stage("../stages/forest_demo_bordered_bowl.usdc")
-
-    # everything after this line happens at until the simulation is closed
-    isaac_sim_runner.run() # Process continues until closed by user or exception.
-
-    # post simulation events go here
+    print("Saving Stage..")
+    environment.save_stage("../stages/forest_stage_4.usdc")
+    print("Stage Saved!")
 
     simulation_app.close()
 

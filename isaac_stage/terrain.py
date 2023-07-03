@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from abc import ABC, abstractmethod
 from typing import Tuple, Union, List, Sequence, Set, Callable
 
@@ -8,7 +9,7 @@ from isaac_stage import appliers, prims
 from isaac_stage import utils
 
 
-class Terrain2D(ABC):
+class Terrain(ABC):
     """Abstract base class for generating terrain meshes.
 
     Attributes:
@@ -153,9 +154,72 @@ class Terrain2D(ABC):
             self.applier(prim_path)
 
         return terrain_prim
+    
+    def __failed_create_terrain():
+        # TODO: If dynamic terrain is needed at some point, using @torch.jit.script to calculate the heights might be worthwhile.
+        # NOTE: For now, a terrain_fn of numpy/torch ufuncs should work.
+        def create_terrain(self, xdim : int, ydim : int, world_translation : Sequence[float]) -> str:
+            
+            num_rows, num_cols = int(ydim/self.terrain_unit), int(xdim/self.terrain_unit)
+            rows, cols = torch.meshgrid(torch.arange(ydim/self.terrain_unit),torch.arange(xdim/self.terrain_unit), indexing='ij')
+            Y = ydim * (rows/(num_rows - 1) - 0.5)
+            X = xdim * (cols/(num_cols - 1) - 0.5)
+
+            #------------------------------------------------------------------------------------#
+            # NOTE: This is the dream implementation but a batched terrain_fn is hard to make.   #
+            # terrain_vec_fn : Callable[[Sequence[float]],float] = lambda position : self.terrain_fn(position[:,:,0],position[:,:,1]) #NOTE: Check if x and y should be flipped because of row column
+            XY = torch.stack((Y,X), -1) # TODO: Should have the property that grid[col][row] = [x,y] in world space.
+            # Z = terrain_vec_fn(XY)                                                             
+            #------------------------------------------------------------------------------------#
+            
+            Z = torch.zeros((num_rows,num_cols))
+
+            for r in range(num_rows):
+                print(F"Sampling Terrain .. {np.floor(100*(r/num_rows))}%")
+                for c in range(num_cols):
+                    Z[r][c] = self.terrain_fn(XY[r,c][0],XY[r,c][1])
+                    
+            index = lambda r,c : num_cols * r + c
+
+            vertices = torch.stack((X,Y,Z),-1)
+            
+            triangles = torch.zeros(size=(2*(num_cols-1)*(num_rows-1),3))                   #   NOTE: traveling counter-clockwise -> out of page (*)
+            normals = torch.zeros(size=(2*(num_cols-1)*(num_rows-1),3))                   #   A <--- B
+            for r in range(num_rows - 1):                                                   #   | * /  ^
+                print(F"Meshing Terrain .. {np.floor(100*(r/num_rows))}%")               #   v  / * |
+                for c in range(num_cols -1):                                                #   C ---> D
+                    i = 2 * index(r,c)                                                      
+                    A, B, C, D =index(r,c), index(r,c+1), index(r+1,c), index(r+1,c+1)
+                    vA,vB,vC,vD=vertices[[A,B,C,D]]
+                    triangles[ i ,0] = A
+                    triangles[ i ,1] = B
+                    triangles[ i ,2] = C
+                    normals[   i ,:] = torch.cross(vA-vB, vC-vB)
+                    triangles[i+1,0] = D
+                    triangles[i+1,1] = C
+                    triangles[i+1,2] = B
+                    normals[  i+1,:] = torch.cross(vD-vC, vB-vC)
+
+            terrain_id = 0 # Get unique name for the terrain.
+            while utils.get_stage().GetPrimAtPath(F"/terrain_mesh_{terrain_id}"):
+                terrain_id += 1
+
+            prim_path =  F"/terrain_mesh_{terrain_id}"
+            
+            faceVertexCounts = [3] * len(triangles)
+            faceVertexIndices= triangles.flatten()
+            primvars_st = [(0,0)] * triangles.size
+            terrain_prim = prims.create_trimesh(prim_path, faceVertexCounts, faceVertexIndices, normals, vertices, primvars_st)
+            prims.translate(prim_path, world_translation)
+
+            # Apply Applier
+            if self.applier:
+                self.applier(prim_path)
+
+            return terrain_prim
 
 
-class WaveletTerrain(Terrain2D):
+class WaveletTerrain(Terrain):
     """A terrain made of wavelets with localized damping and a flat patch.
 
     Methods:
@@ -275,7 +339,7 @@ class WaveletTerrain(Terrain2D):
 
         return tags
 
-class ForestedRoadsTerrain(Terrain2D):
+class RoadsTerrain(Terrain):
     """Creates a forest with linear walkways of varying widths that cut about.
 
     Tags:

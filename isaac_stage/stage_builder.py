@@ -11,7 +11,7 @@ from pxr import *
 from isaac_stage.utils import save_stage
 from isaac_stage.prims import create_light_dome
 from isaac_stage.assets import AssetManager, Asset
-from isaac_stage.terrain import Terrain2D
+from isaac_stage.terrain import Terrain
 
 
 class StageBuilder(ABC):
@@ -52,7 +52,7 @@ class ConstructionStageBuilder(StageBuilder):
         terrain (Terrain): The terrain object representing the environment's terrain.
         asset_manager (AssetManager): The asset manager used to populate the environment with assets.
     """
-    def __init__(self, xdim : int, ydim : int, terrain : Terrain2D, asset_manager : AssetManager):
+    def __init__(self, xdim : int, ydim : int, terrain : Terrain, asset_manager : AssetManager):
         """
         Initializes a new instance of the StageBuilder class.
 
@@ -141,7 +141,7 @@ class ForestStageBuilder(StageBuilder):
         terrain (Terrain): The terrain object representing the environment's terrain.
         asset_manager (AssetManager): The asset manager used to populate the environment with assets.
     """
-    def __init__(self, xdim : int, ydim : int, terrain : Terrain2D, asset_manager : AssetManager):
+    def __init__(self, xdim : int, ydim : int, terrain : Terrain, asset_manager : AssetManager):
         """
         Initializes a new instance of the StageBuilder class.
 
@@ -171,8 +171,6 @@ class ForestStageBuilder(StageBuilder):
         
         def collect_nearby_tags(center_x, center_y, radius, samples):
             offset_x, offset_y = (2*np.random.random(samples)-1)*radius, (2*np.random.random(samples)-1)*radius
-            offset_x[0] = 0 # Guarantee at least one check is in the center of the object. (Otherwise big things like to spawn in small holes).
-            offset_y[0] = 0
             tags = set()
             for i in range(samples):
                 tags.update(self.terrain.get_region_tags((center_x + offset_x[i]), (center_y + offset_y[i])))
@@ -181,7 +179,7 @@ class ForestStageBuilder(StageBuilder):
         total_asset_area = 0
         environment_area_to_fill = self.xdim * self.ydim * density
         while total_asset_area <= self.xdim * self.ydim * density:
-            next_asset : Asset = self.asset_manager.sample_asset( lambda asset : 1)
+            next_asset : Asset = self.asset_manager.sample_asset( lambda _ : 1)
             radius, area = np.sqrt(next_asset.area), next_asset.area
             x, y = (np.random.random()-0.5)*self.xdim, (np.random.random()-0.5)*self.ydim
             total_asset_area += area # NOTE: We still increment area even if no spawn occurs--this guarantees the expected density where assets can spawn.

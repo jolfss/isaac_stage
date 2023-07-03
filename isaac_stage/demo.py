@@ -9,7 +9,7 @@ from omni.isaac.core.simulation_context import SimulationContext
 from assets import *
 from isaac_stage.terrain import *
 from isaac_stage.stage_builder import ConstructionStageBuilder
-from isaac_stage.appliers import apply_default_ground_physics_material
+from isaac_stage.appliers import apply_appliers, apply_color_to_prim, apply_default_ground_physics_material
 
 from omni.isaac.orbit.markers import PointMarker
 
@@ -94,17 +94,17 @@ def main():
     asset_manager = AssetManager()
 
     # get asset directories
-    assets_from_unknown_store = Path(F"{Path.cwd()}/assets/Objects")
+    assets_from_unknown_store = "../assets/Objects"
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
-    asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=apply_default_ground_physics_material)
+    asset_manager.register(assets_from_unknown_store, recurse=True, asset_scale=0.7, applier=apply_default_ground_physics_material)
   
     #-------------#
     #   terrain   #
     #-------------#
 
     # define terrain function
-    terrain = WaveletTerrain(terrain_unit=3)
+    terrain = RoadsTerrain(terrain_unit=1, applier=apply_appliers([apply_default_ground_physics_material,apply_color_to_prim(color=(42/255,35/255,30/255))]))
 
     #-----------------#
     #   environment   #
@@ -114,7 +114,7 @@ def main():
     environment = ConstructionStageBuilder(xdim=100,ydim=100,terrain=terrain,asset_manager=asset_manager)
     
     # build stage
-    environment.build_stage(global_offset=[0,0,0],spawn_assets=True,asset_density=0.3)  
+    environment.build_stage(global_offset=[0,0,0],spawn_assets=False,asset_density=0.3)  
 
     # save stage
     #environment.save_stage(Path("save_readable.usda"))

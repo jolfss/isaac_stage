@@ -2,6 +2,7 @@
 import numpy as np
 from pathlib import Path
 from typing import Callable, Sequence, Union, List
+from overload import overload
 
 # omniverse imports
 from isaac_stage import prims
@@ -21,10 +22,10 @@ class Asset(object):
         area (float): The area of the asset's bounding box.
 
     Methods:
-        __init__(self, asset_file_path : Path, asset_scale : float, applier : str -> None | None ): Initializes the Asset with the given file path, scale, and physics.
+        __init__(self, asset_file_path : Path, asset_scale : float, applier : str -> None | None, area_correction_factor : float = None): Initializes the Asset with the given file path, scale, and physics.
         insert(self, parent_prim_path, translation, rotation, rotation_order, scale) -> str: Inserts an instance of the asset into the scene and returns its path.
     """
-    def __init__(self, asset_file_path : str, asset_scale : float, applier : Union[Callable[[str], None], None]):
+    def __init__(self, asset_file_path : str, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0):
         """Initializes the Asset with the given file path.
 
         Note:
@@ -39,17 +40,19 @@ class Asset(object):
             asset_file_path (Path): The file path of the asset.
             asset_scale (float): The scale factor of the asset (in all directions equally).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) to the prim path.
+            area_correction_factor (float)=None: An optional corrective factor if the bounding box overestimates the effective area of the asset.
         """
         self.__file_path : Path = Path(asset_file_path).resolve()
         self.__name = self.__file_path.stem
         self.__count = 0
         self.asset_scale = asset_scale
         self.applier = applier
+        self.area_correction_factor = area_correction_factor
 
         def calculate_area():
             temp_prim = self.insert() # TODO: Current area check requires a prim be created/destroyed, ideally this can be done without modifying the scene.
             bounding_box = utils.get_context().compute_path_world_bounding_box(temp_prim)           
-            area = np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
+            area = self.area_correction_factor * np.abs(bounding_box[0][0] - bounding_box[1][0]) * np.abs(bounding_box[0][1] - bounding_box[1][1])
             prims.delete(temp_prim)
             print(F"Registered Asset {asset_file_path}, Area={area}m^2")
             return area
@@ -100,11 +103,14 @@ class AssetManager(object):
 
     Methods:
         __init__(self): Initializes the AssetManager with no registered assets.
-        register_asset(self, asset_directory : str, recurse : bool, applier : str -> None | None) -> None: Registers the assets in the given directory.
-        register_many_assets(self, asset_directories : List[str], recurse : bool, applier : str -> None | None) -> None: Registers the assets in all the given directories.
-        register_assets_from_directory(self, asset_directory : str, recurse : bool, applier : str -> None | None) -> None: Registers the assets in the given directory.
-        register_assets_from_many_directories(self, asset_directories : List[str], recurse : bool, applier : str -> None | None) -> None: Registers the assets in all the given directories.
-        sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + asset.area)) -> Asset: Provides a sampled asset with probability proportional to the given weights softmaxed.
+        sample_asset
+        register_asset(self, asset : Asset)
+        register_asset_list(self,  asset_list : List[Asset])
+        register_path(self, asset_path : str,  asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=None)
+        register_path_list(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=None)
+        register_directory(self, asset_directory : str, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=None)
+        register_directory_list(self, asset_directories : List[str], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=None)
+
     
     Requires:
         All registered assets have unique names. Per this version, dummy.usdz and dummy.usd cause a collision when registered together. 
@@ -113,21 +119,63 @@ class AssetManager(object):
         """Initializes an AssetManager."""
         self.registered_assets : np.ndarray = np.array([])
 
-    def register_asset(self, asset_path : str,  asset_scale : float, applier : Union[Callable[[str], None], None]) :
-        """Registers the asset at the asset_path with an optional physics material.
+    def sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + np.sqrt(asset.area))) -> Asset :
+        """Provides an asset sampled with probability proportionate to the given weights.
 
         Args:
-            asset_directory (str): The path of a .usd* asset to register.
+            weight_of_asset (Callable[[Asset],float]): A function that takes an Asset and returns a weight for it. Default is 1 / (1 + sqrt(asset.area)).
+
+        Returns:
+            Asset: A sampled asset with probability proportional to the given weights (handles normalization).
+        """
+        weights = np.array([weight_of_asset(asset) for asset in self.registered_assets])
+        weights = weights / sum(weights)
+        return np.random.choice(self.registered_assets, p=weights)
+
+    @overload
+    def register(self, 
+                 asset :        Union[Asset,List[Asset],str,List[str]],
+                 recurse :      Union[None,bool],
+                 asset_scale :  Union[None,float],
+                 applier :      Union[None,Callable[[str],None]],
+                 area_correction_factor : Union[None,float]
+
+                 ):
+        """Registers the asset at the asset_path with an optional physics material.
+
+        Overload Summary:
+            | asset input implementations | recurse | asset_scale | applier            | area_correction_factor |
+            |---------------------------------------------------------------------------------------------------|
+            | asset : Asset               | None    | None        | None               | None                   |
+            | asset_list : Asset list     | None    | None        | None               | None                   |
+            | asset_path : str            | None    | None        | str -> None | None | float = 1.0            |
+            | asset_path_list : str list  | None    | None        | str -> None | None | float = 1.0            |
+            | asset_directory : str       | bool    | None        | str -> None | None | float = 1.0            |
+            | asset_dir_list : str list   | bool    | None        | str -> None | None | float = 1.0            |
+
+        Args:
+            input (Asset | Asset list | str | str list)
+            recurse (bool): Whether or not to continue down subdirectories to find assets.
+            asset_directory (str | str list): The path of a .usd* asset to register.
             asset_scale (float): The scale factor applied to the asset registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
+        self.register_assets = np.append(self.registered_assets, asset)
+
+    @register.add
+    def register(self, asset_list : List[Asset]) :
+        for asset in asset_list:
+            self.registered_assets = np.append(self.registered_assets, asset)
+
+    @register.add
+    def register(self, asset_path : str,  asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0) :
         asset_path : Path = Path(asset_path).resolve()
         if asset_path.is_file():
             if ".usd" in asset_path.suffix:
-                self.registered_assets = np.append(self.registered_assets, Asset(str(asset_path), asset_scale=asset_scale, applier=applier))
+                self.registered_assets = np.append(self.registered_assets, Asset(str(asset_path), asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor))
 
-    
-    def register_many_assets(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None]) :
+    @register.add
+    def register(self, asset_path_list : List[str], asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0) :
         """Registers the listed assets from the list of paths with an optional physics material..
 
         Args:
@@ -138,10 +186,10 @@ class AssetManager(object):
         """
         for asset_path in asset_path_list:
             asset_path = str(Path(asset_path).resolve())
-            self.register_asset(asset_path=asset_path, asset_scale=asset_scale, applier=applier)
+            self.register(asset_path=asset_path, asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor)
 
-
-    def register_assets_from_directory(self, asset_directory : str, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None]):
+    @register.add
+    def register(self, asset_directory : str, recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0):
         """Registers the assets in the given directory with an optional physics applier, and optionally recurses into subdirectories to find other assets.
 
         Args:
@@ -161,12 +209,12 @@ class AssetManager(object):
                     assets_to_be_registered.append(Asset(str(full_path), asset_scale=asset_scale, applier=applier))
             elif full_path.is_dir():
                 if recurse:
-                    self.register_assets_from_directory(full_path, recurse=recurse, asset_scale=asset_scale, applier=applier)
+                    self.register(full_path, recurse=recurse, asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor)
         
         self.registered_assets = np.append(self.registered_assets, assets_to_be_registered)
 
-    
-    def register_assets_from_many_directories(self, asset_directories : List[str], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None]) :
+    @register.add
+    def register(self, asset_directory_list : List[str], recurse : bool, asset_scale : float, applier : Union[Callable[[str], None], None], area_correction_factor : float=1.0) :
         """Registers the assets in the given directories with an optional physics material, and optionally recurses to find those in the subdirectories of each.
 
         Args:
@@ -175,20 +223,6 @@ class AssetManager(object):
             asset_scale (float) = 1.0: The scale factor applied to the assets registered (useful for converting between units).
             applier (str -> None | None): A function that applies a physics material (or whatever you want) given the prim path.
         """
-        for asset_directory in asset_directories:
+        for asset_directory in asset_directory_list:
             asset_directory = str(Path(asset_directory).resolve())
-            self.register_assets_from_directory(asset_directory, recurse=recurse, asset_scale=asset_scale, applier=applier)
-
-
-    def sample_asset(self, weight_of_asset : Callable[[Asset],float] = lambda asset : 1 / (1 + np.sqrt(asset.area))) -> Asset :
-        """Provides an asset sampled with probability proportionate to the given weights softmaxxed.
-
-        Args:
-            weight_of_asset (Callable[[Asset],float]): A function that takes an Asset and returns a weight for it. Default is 1 / (1 + asset.area).
-
-        Returns:
-            Asset: A sampled asset with probability proportional to the given weights softmaxed.
-        """
-        weights = np.array([weight_of_asset(asset) for asset in self.registered_assets])
-        weights = weights / sum(weights)
-        return np.random.choice(self.registered_assets, p=weights)
+            self.register(asset_directory, recurse=recurse, asset_scale=asset_scale, applier=applier, area_correction_factor=area_correction_factor)

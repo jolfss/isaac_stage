@@ -72,10 +72,10 @@ def main():
     asset_manager = AssetManager()
 
     # get asset directories
-    assets_from_unknown_store = "./assets/Objects"
+    assets_from_unknown_store = "../assets/Objects"
 
     # register assets with a default material that 1) enables collisions 2) makes them visible to physics raytracing. NOTE: The ground material is static, i.e., objects cannot move. 
-    asset_manager.register_assets_from_directory(assets_from_unknown_store, recurse=True, asset_scale=0.625
+    asset_manager.register(assets_from_unknown_store, recurse=True, asset_scale=0.625
                                                  ,applier=apply_default_ground_physics_material)
   
     #-------------#
@@ -85,7 +85,7 @@ def main():
     dim = 100 # both terrain and environment
 
     # define terrain function
-    terrain = ForestedRoadsTerrain(terrain_unit=0.5, xdim=dim, ydim=dim, road_min_width=1, road_max_width=2.5, road_num=11, amp=0.333
+    terrain = RoadsTerrain(terrain_unit=0.5, xdim=dim, ydim=dim, road_min_width=1, road_max_width=2.5, road_num=11, amp=0.333
                                    ,applier=apply_appliers([
                                        apply_default_ground_physics_material, 
                                        apply_color_to_prim(color=(0.35,0.31,0.25))]))
@@ -98,7 +98,7 @@ def main():
     environment = ForestStageBuilder(xdim=dim,ydim=dim,terrain=terrain,asset_manager=asset_manager)
     
     # build stage
-    environment.build_stage(global_offset=[0,0,0],spawn_assets=True,asset_density=3)  
+    environment.build_stage(global_offset=[0,0,0],spawn_assets=False,asset_density=3)  
 
     # save stage
     #environment.save_stage(Path("save_readable.usda"))
