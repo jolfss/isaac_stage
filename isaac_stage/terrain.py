@@ -356,7 +356,8 @@ class RoadsTerrain(Terrain):
                  road_min_width : float = 2,
                  road_max_width : float = 5,
                  spawn_radius : float = 3,
-                 border_threshold : float = 2.5
+                 border_threshold : float = 2.5,
+                 border_height : float = 1.0
                  ):
         
         super().__init__(terrain_unit, applier)
@@ -369,7 +370,8 @@ class RoadsTerrain(Terrain):
         self.road_min_width : float = road_min_width
         self.road_max_width : float = road_max_width
         self.spawn_radius : float = spawn_radius
-        self.border_threshold :float = border_threshold
+        self.border_threshold : float = border_threshold
+        self.border_height : float = border_height
 
         # randoms (initialized in randomize())
         self.road_widths : Sequence[float] # float \in [road_min_width, road_max_width) list
@@ -420,7 +422,7 @@ class RoadsTerrain(Terrain):
         return np.linalg.norm([x,y]) < self.spawn_radius
     
     def terrain_fn(self, x, y) -> float:
-        return self.bowl(x,y) if (self.is_road(x,y) or self.is_spawn(x,y)) and not self.is_border(x,y) else self.amp * ( 1 + self.bowl(x,y))
+        return self.bowl(x,y) if (self.is_road(x,y) or self.is_spawn(x,y)) and not self.is_border(x,y) else self.amp * (1 + self.bowl(x,y) + (self.border_height if self.is_border(x,y) else 0))
     
     def get_region_tags(self, x, y) -> Set[str]:
         """
