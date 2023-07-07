@@ -357,7 +357,9 @@ class RoadsTerrain(Terrain):
                  road_max_width : float = 5,
                  spawn_radius : float = 3,
                  border_threshold : float = 2.5,
-                 border_height : float = 1.0
+                 border_height : float = 1.0,
+                 bowl_drasticity : int = 4.0,
+                 bowl_amplitude : float = 3.0
                  ):
         
         super().__init__(terrain_unit, applier)
@@ -372,6 +374,8 @@ class RoadsTerrain(Terrain):
         self.spawn_radius : float = spawn_radius
         self.border_threshold : float = border_threshold
         self.border_height : float = border_height
+        self.bowl_drasticity : int = bowl_drasticity
+        self.bowl_amplitude : float = bowl_amplitude
 
         # randoms (initialized in randomize())
         self.road_widths : Sequence[float] # float \in [road_min_width, road_max_width) list
@@ -409,7 +413,7 @@ class RoadsTerrain(Terrain):
         return np.abs(np.dot(self.roads,[x,y])[nearest_road_id] + self.road_offsets[nearest_road_id])
     
     def bowl(self, x, y):
-        return 3*((x**6)/((self.xdim/2))**6) + 3*(((y**6)/((self.ydim/2)**6)))
+        return self.bowl_amplitude * max(((x**self.bowl_drasticity)/((self.xdim/2))**self.bowl_drasticity),(((y**self.bowl_drasticity)/((self.ydim/2)**self.bowl_drasticity))))
     
     def is_border(self, x, y) -> bool:
         return self.xdim/2 - (np.abs(x) + self.border_threshold) < 0 or self.ydim/2 - (np.abs(y) + self.border_threshold) < 0
@@ -422,7 +426,7 @@ class RoadsTerrain(Terrain):
         return np.linalg.norm([x,y]) < self.spawn_radius
     
     def terrain_fn(self, x, y) -> float:
-        return self.bowl(x,y) if (self.is_road(x,y) or self.is_spawn(x,y)) and not self.is_border(x,y) else self.amp * (1 + self.bowl(x,y) + (self.border_height if self.is_border(x,y) else 0))
+        return self.amp * self.bowl(x,y) if (self.is_road(x,y) or self.is_spawn(x,y)) and not self.is_border(x,y) else self.amp * (1 + self.bowl(x,y)) + (self.border_height if self.is_border(x,y) else 0)
     
     def get_region_tags(self, x, y) -> Set[str]:
         """

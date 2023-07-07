@@ -93,10 +93,10 @@ def transform(prim_path : str,
                 new_rotation_euler=gf_rotation,
                 new_rotation_order=gf_rotation_order,
                 new_scale=gf_scale,
-                old_translation=Gf.Vec3d(0.0, 0.0, 0.0),
-                old_rotation_euler=Gf.Vec3d(0.0, 0.0, 0.0),
-                old_rotation_order=Gf.Vec3i(0, 1, 2),
-                old_scale=Gf.Vec3d(1.0, 1.0, 1.0),
+                old_translation=gf_translation,
+                old_rotation_euler=gf_rotation,
+                old_rotation_order=gf_rotation_order,
+                old_scale=gf_scale,
         )
 
 def get_pose(prim_path):

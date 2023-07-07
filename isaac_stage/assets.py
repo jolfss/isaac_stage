@@ -150,7 +150,7 @@ class AssetManager(object):
     def register(self, asset_directory: List[str], recurse: bool, asset_scale: float, area_factor: Optional[float] = None, applier: Optional[Callable[[str], None]] = None) -> None: ...
 
     def register(self, asset, recurse=None, asset_scale=None, applier=None, area_factor=None):
-        """Registers the asset at the asset_path with an optional physics material.
+        """Registers assets
 
         Overload Summary:
             | asset input implementations | recurse | asset_scale | applier            | area_factor    |
